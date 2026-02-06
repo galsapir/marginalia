@@ -52,8 +52,8 @@ export function DocumentView({
       startOffset: result.startOffset,
       endOffset: result.endOffset,
       popoverPosition: {
-        x: rect.left + window.scrollX,
-        y: rect.bottom + window.scrollY,
+        x: rect.left,
+        y: rect.bottom,
       },
     });
   }, []);
@@ -86,8 +86,8 @@ export function DocumentView({
       startOffset: mdOffset,
       endOffset: mdOffset,
       popoverPosition: {
-        x: e.clientX + window.scrollX,
-        y: e.clientY + window.scrollY,
+        x: e.clientX,
+        y: e.clientY,
       },
     });
   }, []);
