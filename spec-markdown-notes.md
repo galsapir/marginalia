@@ -105,34 +105,21 @@ This ensures annotations are anchored to the markdown source regardless of which
 
 ### Export Format
 
-Optimized for LLM consumption. Uses a consolidated format that gives the LLM clear context:
+Optimized for LLM consumption. Annotations are inserted inline using curly braces, directly next to the text they reference. No separate annotations section — keeps instructions close to their targets in the context window.
+
+Two annotation types:
+- **Range annotations** — attached to a selected text span. The note appears right after the selected text: `selected text {note}`
+- **Point annotations** — inserted at a specific location (double-click). Just the note: `{note}`
 
 ```markdown
-# Document with Annotations
-
-Below is a markdown document with inline annotations. Each annotation is marked
-with a numbered tag [A1], [A2], etc. at the relevant position in the text.
-After the document, you'll find the full list of annotations.
-
----
-
-## [Original document content here]
-
-The API uses [A1]REST endpoints[/A1] for all operations.
-This section covers [A2]the deployment pipeline[/A2] in detail.
-
----
-
-## Annotations
-
-- **[A1]** "REST endpoints" — Consider GraphQL instead, justify the choice
-- **[A2]** "the deployment pipeline" — Expand this section with concrete steps
+The API uses REST endpoints {Consider using GraphQL instead — justify the choice} for all operations.
+This section covers the deployment pipeline {Expand with concrete steps and examples} in detail.
+{Add a section here about monitoring and observability}
 ```
 
 This format:
-- Preserves the full original document for context
-- Marks annotation positions inline so the LLM knows exactly where each note applies
-- Lists all annotations with the selected text quoted for clarity
+- Puts each annotation directly next to its target text (optimal for LLM attention)
+- No cross-referencing needed — the LLM reads instructions in-place
 - No added prompts or instructions — the user provides their own context when pasting into an LLM
 
 ### Dependencies
