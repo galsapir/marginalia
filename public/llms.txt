@@ -1,0 +1,18 @@
+# Marginalia
+
+> Annotate markdown documents with notes for LLM consumption.
+
+Marginalia is a browser-based tool for reviewing and annotating markdown documents. Users paste markdown content, read through the rendered document, and attach free-form notes to selected text ranges. The annotated document exports as a single markdown file with inline annotations in curly braces, optimized for pasting into LLM conversations.
+
+## Features
+- Paste markdown, view rendered with toggle to raw source
+- Select text to attach annotation notes (Google Docs comment style)
+- Double-click to edit markdown blocks inline
+- Export with inline `{note}` annotations placed next to their target text
+- Copy to clipboard or download as .md file
+- Dark mode with system preference detection
+- No backend, no accounts — runs entirely in the browser
+
+## Links
+- App: https://galsapir.github.io/marginalia/
+- Source: https://github.com/galsapir/marginalia

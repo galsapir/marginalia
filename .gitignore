@@ -25,3 +25,4 @@ dist-ssr
 
 # Conversation exports
 *.txt
+!public/*.txt
