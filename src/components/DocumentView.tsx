@@ -1,27 +1,33 @@
-// ABOUTME: Renders markdown with annotation highlights and handles text selection for new annotations.
+// ABOUTME: Renders markdown with annotation highlights, text selection for annotations, and inline editing.
 // ABOUTME: Uses react-markdown with rehype source positions; post-processes DOM to apply highlight marks.
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSourcePositions from '../lib/remarkSourcePositions';
-import { selectionToMarkdownRange, clickToMarkdownOffset } from '../lib/selection';
+import { selectionToMarkdownRange } from '../lib/selection';
 import { AnnotationPopover } from './AnnotationPopover';
-import type { Annotation, AnnotationKind } from '../lib/types';
+import type { Annotation } from '../lib/types';
 
 interface DocumentViewProps {
   markdown: string;
   annotations: Annotation[];
   activeAnnotationId: string | null;
-  onAddAnnotation: (selectedText: string, note: string, startOffset: number, endOffset: number, kind?: AnnotationKind) => string;
+  onAddAnnotation: (selectedText: string, note: string, startOffset: number, endOffset: number) => string;
   onActivateAnnotation: (id: string) => void;
+  onEditMarkdown: (startOffset: number, endOffset: number, newText: string) => void;
 }
 
 interface PendingAnnotation {
-  kind: AnnotationKind;
   selectedText: string;
   startOffset: number;
   endOffset: number;
   popoverPosition: { x: number; y: number };
+}
+
+interface InlineEdit {
+  startOffset: number;
+  endOffset: number;
+  originalMarkdown: string;
 }
 
 export function DocumentView({
@@ -30,24 +36,27 @@ export function DocumentView({
   activeAnnotationId,
   onAddAnnotation,
   onActivateAnnotation,
+  onEditMarkdown,
 }: DocumentViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState<PendingAnnotation | null>(null);
+  const [editing, setEditing] = useState<InlineEdit | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Handle text selection (mouseup)
   const handleMouseUp = useCallback(() => {
+    if (editing) return;
+
     const selection = window.getSelection();
     if (!selection || !containerRef.current) return;
 
     const result = selectionToMarkdownRange(selection, containerRef.current);
     if (!result) return;
 
-    // Get position for the popover
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
     setPending({
-      kind: 'range',
       selectedText: result.selectedText,
       startOffset: result.startOffset,
       endOffset: result.endOffset,
@@ -56,46 +65,80 @@ export function DocumentView({
         y: rect.bottom,
       },
     });
-  }, []);
+  }, [editing]);
 
-  // Handle double-click for point annotations
+  // Handle double-click for inline editing
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    // Don't create point annotation if clicking on an existing highlight
+    if (pending) return;
+
+    // Don't edit if clicking on an existing highlight — that's for activating annotations
     if ((e.target as HTMLElement).closest('mark[data-annotation-id]')) return;
 
     e.preventDefault();
     window.getSelection()?.removeAllRanges();
 
-    if (!containerRef.current) return;
+    // Find the nearest element with source position data
+    let el = e.target as HTMLElement;
+    while (el && el !== containerRef.current) {
+      const sourceStart = el.getAttribute('data-source-start');
+      const sourceEnd = el.getAttribute('data-source-end');
+      if (sourceStart !== null && sourceEnd !== null) {
+        const start = parseInt(sourceStart, 10);
+        const end = parseInt(sourceEnd, 10);
+        const blockMarkdown = markdown.slice(start, end);
 
-    // Get the caret position from the double-click
-    const caretPos = document.caretPositionFromPoint?.(e.clientX, e.clientY);
-    const caretRange = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+        setEditing({
+          startOffset: start,
+          endOffset: end,
+          originalMarkdown: blockMarkdown,
+        });
+        return;
+      }
+      el = el.parentElement!;
+    }
+  }, [pending, markdown]);
 
-    const node = caretPos?.offsetNode ?? caretRange?.startContainer;
-    const offset = caretPos?.offset ?? caretRange?.startOffset ?? 0;
+  // Focus textarea when editing starts
+  useEffect(() => {
+    if (editing && editTextareaRef.current) {
+      const ta = editTextareaRef.current;
+      ta.focus();
+      // Place cursor at end
+      ta.selectionStart = ta.value.length;
+      ta.selectionEnd = ta.value.length;
+    }
+  }, [editing]);
 
-    if (!node) return;
+  const handleEditSave = useCallback(() => {
+    if (!editing || !editTextareaRef.current) return;
+    const newText = editTextareaRef.current.value;
+    if (newText !== editing.originalMarkdown) {
+      onEditMarkdown(editing.startOffset, editing.endOffset, newText);
+    }
+    setEditing(null);
+  }, [editing, onEditMarkdown]);
 
-    const mdOffset = clickToMarkdownOffset(node, offset, containerRef.current);
-    if (mdOffset === null) return;
-
-    setPending({
-      kind: 'point',
-      selectedText: '',
-      startOffset: mdOffset,
-      endOffset: mdOffset,
-      popoverPosition: {
-        x: e.clientX,
-        y: e.clientY,
-      },
-    });
+  const handleEditCancel = useCallback(() => {
+    setEditing(null);
   }, []);
+
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleEditSave();
+      }
+      if (e.key === 'Escape') {
+        handleEditCancel();
+      }
+    },
+    [handleEditSave, handleEditCancel],
+  );
 
   const handlePopoverSubmit = useCallback(
     (note: string) => {
       if (pending) {
-        onAddAnnotation(pending.selectedText, note, pending.startOffset, pending.endOffset, pending.kind);
+        onAddAnnotation(pending.selectedText, note, pending.startOffset, pending.endOffset);
         setPending(null);
         window.getSelection()?.removeAllRanges();
       }
@@ -110,20 +153,25 @@ export function DocumentView({
 
   // Apply annotation highlights to the rendered DOM
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || editing) return;
     applyHighlights(containerRef.current, annotations, activeAnnotationId, onActivateAnnotation);
-  }, [annotations, activeAnnotationId, markdown, onActivateAnnotation]);
+  }, [annotations, activeAnnotationId, markdown, onActivateAnnotation, editing]);
 
   // Scroll to active annotation highlight in document
   useEffect(() => {
     if (!activeAnnotationId || !containerRef.current) return;
-    const el =
-      containerRef.current.querySelector(`mark[data-annotation-id="${activeAnnotationId}"]`) ??
-      containerRef.current.querySelector(`span[data-point-annotation-id="${activeAnnotationId}"]`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const mark = containerRef.current.querySelector(`mark[data-annotation-id="${activeAnnotationId}"]`);
+    if (mark) {
+      mark.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [activeAnnotationId]);
+
+  // Auto-resize textarea to fit content
+  const handleTextareaInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }, []);
 
   return (
     <div className="relative">
@@ -138,15 +186,114 @@ export function DocumentView({
         </ReactMarkdown>
       </div>
 
+      {/* Inline edit overlay */}
+      {editing && (
+        <InlineEditOverlay
+          markdown={markdown}
+          editing={editing}
+          containerRef={containerRef}
+          textareaRef={editTextareaRef}
+          onSave={handleEditSave}
+          onCancel={handleEditCancel}
+          onKeyDown={handleEditKeyDown}
+          onInput={handleTextareaInput}
+        />
+      )}
+
       {pending && (
         <AnnotationPopover
           position={pending.popoverPosition}
           selectedText={pending.selectedText}
-          isPoint={pending.kind === 'point'}
           onSubmit={handlePopoverSubmit}
           onDismiss={handlePopoverDismiss}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Overlay that replaces a rendered block with an editable textarea.
+ */
+function InlineEditOverlay({
+  markdown,
+  editing,
+  containerRef,
+  textareaRef,
+  onSave,
+  onCancel,
+  onKeyDown,
+  onInput,
+}: {
+  markdown: string;
+  editing: InlineEdit;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  onSave: () => void;
+  onCancel: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onInput: (e: React.FormEvent<HTMLTextAreaElement>) => void;
+}) {
+  // Find the DOM element that matches this edit's source range
+  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const elements = containerRef.current.querySelectorAll('[data-source-start][data-source-end]');
+    for (const el of elements) {
+      const start = parseInt(el.getAttribute('data-source-start')!, 10);
+      const end = parseInt(el.getAttribute('data-source-end')!, 10);
+      if (start === editing.startOffset && end === editing.endOffset) {
+        const rect = el.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        setPosition({
+          top: rect.top - containerRect.top,
+          left: rect.left - containerRect.left,
+          width: rect.width,
+        });
+        // Hide the original element while editing
+        (el as HTMLElement).style.opacity = '0';
+        return () => {
+          (el as HTMLElement).style.opacity = '';
+        };
+      }
+    }
+  }, [editing, containerRef, markdown]);
+
+  if (!position) return null;
+
+  return (
+    <div
+      className="absolute z-30"
+      style={{ top: position.top, left: position.left, width: position.width }}
+    >
+      <textarea
+        ref={textareaRef}
+        defaultValue={editing.originalMarkdown}
+        onKeyDown={onKeyDown}
+        onInput={onInput}
+        className="w-full min-h-[3em] px-3 py-2 bg-cream-100 dark:bg-ink-800 border-2 border-sienna-400 dark:border-sienna-500 rounded-lg font-mono text-sm text-ink-700 dark:text-ink-100 resize-none focus:outline-none"
+        style={{ overflow: 'hidden' }}
+      />
+      <div className="flex justify-between items-center mt-1.5">
+        <span className="text-[10px] text-ink-200 dark:text-ink-500 font-sans">
+          ⌘↵ save · Esc cancel
+        </span>
+        <div className="flex gap-1">
+          <button
+            onClick={onCancel}
+            className="px-2 py-1 text-[10px] font-sans text-ink-300 hover:text-ink-500 dark:text-ink-400 dark:hover:text-ink-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            className="px-2 py-1 text-[10px] font-sans font-medium bg-ink-700 dark:bg-cream-100 text-cream-50 dark:text-ink-800 rounded"
+          >
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -161,7 +308,7 @@ function applyHighlights(
   activeId: string | null,
   onActivate: (id: string) => void,
 ) {
-  // Remove existing marks and point markers first
+  // Remove existing marks first
   container.querySelectorAll('mark[data-annotation-id]').forEach((mark) => {
     const parent = mark.parentNode;
     if (parent) {
@@ -172,9 +319,6 @@ function applyHighlights(
       parent.normalize();
     }
   });
-  container.querySelectorAll('span[data-point-annotation-id]').forEach((span) => {
-    span.parentNode?.removeChild(span);
-  });
 
   // Sort annotations by start offset (descending) to process from end to start
   // so earlier insertions don't shift later offsets
@@ -183,11 +327,7 @@ function applyHighlights(
   );
 
   for (const annotation of sorted) {
-    if (annotation.kind === 'point') {
-      insertPointMarker(container, annotation, activeId === annotation.id, onActivate);
-    } else {
-      wrapAnnotationRange(container, annotation, activeId === annotation.id, onActivate);
-    }
+    wrapAnnotationRange(container, annotation, activeId === annotation.id, onActivate);
   }
 }
 
@@ -201,19 +341,16 @@ function wrapAnnotationRange(
   isActive: boolean,
   onActivate: (id: string) => void,
 ) {
-  // Find all elements whose source range overlaps with this annotation
   const elements = container.querySelectorAll('[data-source-start][data-source-end]');
 
   for (const el of elements) {
     const elStart = parseInt(el.getAttribute('data-source-start')!, 10);
     const elEnd = parseInt(el.getAttribute('data-source-end')!, 10);
 
-    // Check if this element's range overlaps with the annotation
     if (elStart >= annotation.markdownEndOffset || elEnd <= annotation.markdownStartOffset) {
       continue;
     }
 
-    // Walk text nodes within this element and wrap matching ranges
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     const textNodes: Text[] = [];
     let node: Node | null;
@@ -221,7 +358,6 @@ function wrapAnnotationRange(
       textNodes.push(node as Text);
     }
 
-    // Calculate the offset within this element where the annotation starts/ends
     const annotationStartInEl = Math.max(0, annotation.markdownStartOffset - elStart);
     const annotationEndInEl = Math.min(elEnd - elStart, annotation.markdownEndOffset - elStart);
 
@@ -231,7 +367,6 @@ function wrapAnnotationRange(
       const nodeStart = charCount;
       const nodeEnd = charCount + textLength;
 
-      // Check if this text node overlaps with the annotation range within the element
       if (nodeStart < annotationEndInEl && nodeEnd > annotationStartInEl) {
         const wrapStart = Math.max(0, annotationStartInEl - nodeStart);
         const wrapEnd = Math.min(textLength, annotationEndInEl - nodeStart);
@@ -253,75 +388,12 @@ function wrapAnnotationRange(
             range.surroundContents(mark);
           } catch {
             // surroundContents can fail if the range crosses element boundaries
-            // In that case, we skip this text node
           }
-          break; // After wrapping, the text nodes have changed, so exit loop
+          break;
         }
       }
 
       charCount += textLength;
-    }
-  }
-}
-
-/**
- * Inserts a small visual marker at the point annotation's location in the document.
- */
-function insertPointMarker(
-  container: HTMLElement,
-  annotation: Annotation,
-  isActive: boolean,
-  onActivate: (id: string) => void,
-) {
-  const elements = container.querySelectorAll('[data-source-start][data-source-end]');
-
-  for (const el of elements) {
-    const elStart = parseInt(el.getAttribute('data-source-start')!, 10);
-    const elEnd = parseInt(el.getAttribute('data-source-end')!, 10);
-
-    if (annotation.markdownStartOffset < elStart || annotation.markdownStartOffset > elEnd) {
-      continue;
-    }
-
-    const targetOffset = annotation.markdownStartOffset - elStart;
-
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    let charCount = 0;
-    let textNode: Text | null = null;
-
-    let current: Node | null;
-    while ((current = walker.nextNode())) {
-      const len = current.textContent?.length ?? 0;
-      if (charCount + len >= targetOffset) {
-        textNode = current as Text;
-        break;
-      }
-      charCount += len;
-    }
-
-    if (textNode) {
-      const offsetInNode = targetOffset - charCount;
-
-      const marker = document.createElement('span');
-      marker.setAttribute('data-point-annotation-id', annotation.id);
-      marker.setAttribute('data-annotation-id', annotation.id);
-      marker.className = `inline-block w-2 h-2 rounded-full mx-0.5 align-middle cursor-pointer ${
-        isActive
-          ? 'bg-sienna-500'
-          : 'bg-sienna-400/60 hover:bg-sienna-500'
-      }`;
-      marker.style.transition = 'background-color 0.15s ease';
-      marker.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onActivate(annotation.id);
-      });
-
-      // Split text node and insert marker
-      if (offsetInNode > 0 && offsetInNode < (textNode.textContent?.length ?? 0)) {
-        textNode.splitText(offsetInNode);
-      }
-      textNode.parentNode?.insertBefore(marker, textNode.nextSibling);
-      return;
     }
   }
 }

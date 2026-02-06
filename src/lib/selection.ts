@@ -80,20 +80,6 @@ function findSourcePosition(
 }
 
 /**
- * Given a click event target within the rendered markdown container,
- * maps the click position to a character offset in the original markdown source.
- * Used for point annotations (double-click to annotate at a location).
- */
-export function clickToMarkdownOffset(
-  node: Node,
-  offset: number,
-  containerEl: HTMLElement,
-): number | null {
-  if (!containerEl.contains(node)) return null;
-  return findSourcePosition(node, offset, 'start');
-}
-
-/**
  * Counts the text content length from the start of `root` up to the point
  * defined by (targetNode, targetOffset) using a TreeWalker.
  */

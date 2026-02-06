@@ -12,21 +12,11 @@ export function generateExport(markdown: string, annotations: Annotation[]): str
   let result = markdown;
 
   for (const ann of sorted) {
-    const note = `{${ann.note}}`;
-
-    if (ann.kind === 'point') {
-      // Insert note at the point location
-      result =
-        result.slice(0, ann.markdownStartOffset) +
-        note +
-        result.slice(ann.markdownStartOffset);
-    } else {
-      // Insert note right after the selected text
-      result =
-        result.slice(0, ann.markdownEndOffset) +
-        ' ' + note +
-        result.slice(ann.markdownEndOffset);
-    }
+    // Insert note right after the selected text
+    result =
+      result.slice(0, ann.markdownEndOffset) +
+      ' {' + ann.note + '}' +
+      result.slice(ann.markdownEndOffset);
   }
 
   return result;

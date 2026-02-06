@@ -6,7 +6,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 interface AnnotationPopoverProps {
   position: { x: number; y: number };
   selectedText: string;
-  isPoint?: boolean;
   onSubmit: (note: string) => void;
   onDismiss: () => void;
 }
@@ -14,7 +13,6 @@ interface AnnotationPopoverProps {
 export function AnnotationPopover({
   position,
   selectedText,
-  isPoint = false,
   onSubmit,
   onDismiss,
 }: AnnotationPopoverProps) {
@@ -86,15 +84,13 @@ export function AnnotationPopover({
       className="fixed z-50 w-80 bg-cream-50 dark:bg-ink-800 border border-cream-300 dark:border-ink-600 rounded-lg shadow-lg shadow-ink-900/8 dark:shadow-ink-900/40"
       style={style}
     >
-      {/* Selected text preview (hidden for point annotations) */}
-      {!isPoint && (
-        <div className="px-4 pt-3 pb-2 border-b border-cream-200 dark:border-ink-700">
-          <p className="text-xs font-sans text-ink-300 dark:text-ink-400 mb-1">Selection</p>
-          <p className="font-serif text-sm text-ink-500 dark:text-ink-200 italic leading-snug">
-            "{truncatedText}"
-          </p>
-        </div>
-      )}
+      {/* Selected text preview */}
+      <div className="px-4 pt-3 pb-2 border-b border-cream-200 dark:border-ink-700">
+        <p className="text-xs font-sans text-ink-300 dark:text-ink-400 mb-1">Selection</p>
+        <p className="font-serif text-sm text-ink-500 dark:text-ink-200 italic leading-snug">
+          "{truncatedText}"
+        </p>
+      </div>
 
       {/* Note input */}
       <div className="p-4">

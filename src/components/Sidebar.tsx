@@ -168,20 +168,10 @@ function AnnotationCard({
         </div>
       </div>
 
-      {/* Selected text (or point indicator) */}
-      {annotation.kind === 'point' ? (
-        <p className="font-sans text-[10px] text-ink-300 dark:text-ink-400 mb-2 flex items-center gap-1">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          Point annotation
-        </p>
-      ) : (
-        <p className="font-serif text-xs text-ink-400 dark:text-ink-300 italic leading-relaxed mb-2">
-          "{truncatedSelection}"
-        </p>
-      )}
+      {/* Selected text */}
+      <p className="font-serif text-xs text-ink-400 dark:text-ink-300 italic leading-relaxed mb-2">
+        "{truncatedSelection}"
+      </p>
 
       {/* Note */}
       {isEditing ? (

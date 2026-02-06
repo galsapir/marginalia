@@ -23,11 +23,23 @@ export default function App() {
     addAnnotation,
     updateAnnotation,
     deleteAnnotation,
+    shiftAnnotations,
   } = useAnnotations();
 
   const handleLoadMarkdown = useCallback((content: string) => {
     setMarkdown(content);
   }, []);
+
+  const handleEditMarkdown = useCallback(
+    (startOffset: number, endOffset: number, newText: string) => {
+      if (markdown === null) return;
+      const updated =
+        markdown.slice(0, startOffset) + newText + markdown.slice(endOffset);
+      setMarkdown(updated);
+      shiftAnnotations(startOffset, endOffset, newText.length);
+    },
+    [markdown, shiftAnnotations],
+  );
 
   const handleReset = useCallback(() => {
     setMarkdown(null);
@@ -117,6 +129,7 @@ export default function App() {
                 activeAnnotationId={activeAnnotationId}
                 onAddAnnotation={addAnnotation}
                 onActivateAnnotation={handleAnnotationActivate}
+                onEditMarkdown={handleEditMarkdown}
               />
             ) : (
               <RawView markdown={markdown} />
