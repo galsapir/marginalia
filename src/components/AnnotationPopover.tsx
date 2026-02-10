@@ -1,10 +1,10 @@
 // ABOUTME: Floating popover for creating annotations on text selections.
 // ABOUTME: Appears near the selected text with a textarea and submit button; dismisses on Escape.
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 
 interface AnnotationPopoverProps {
-  position: { x: number; y: number };
+  position: { x: number; y: number; selectionTop: number };
   selectedText: string;
   onSubmit: (note: string) => void;
   onDismiss: () => void;
@@ -67,10 +67,20 @@ export function AnnotationPopover({
     [handleSubmit],
   );
 
-  // Clamp position so the popover stays on screen
+  // Flip popover above selection when it would overflow the viewport bottom
+  const [flipped, setFlipped] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!popoverRef.current) return;
+    const popoverHeight = popoverRef.current.offsetHeight;
+    const spaceBelow = window.innerHeight - position.y - 8;
+    setFlipped(spaceBelow < popoverHeight && position.selectionTop - 8 - popoverHeight > 0);
+  }, [position]);
+
   const style: React.CSSProperties = {
-    left: Math.min(position.x, window.innerWidth - 360),
-    top: position.y + 8,
+    left: Math.min(Math.max(8, position.x), window.innerWidth - 360),
+    top: flipped ? undefined : position.y + 8,
+    bottom: flipped ? window.innerHeight - position.selectionTop + 8 : undefined,
   };
 
   const truncatedText =

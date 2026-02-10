@@ -23,7 +23,7 @@ interface PendingAnnotation {
   selectedText: string;
   startOffset: number;
   endOffset: number;
-  popoverPosition: { x: number; y: number };
+  popoverPosition: { x: number; y: number; selectionTop: number };
 }
 
 interface InlineEdit {
@@ -71,6 +71,7 @@ export function DocumentView({
         popoverPosition: {
           x: rect.left,
           y: rect.bottom,
+          selectionTop: rect.top,
         },
       });
     }, 250);
