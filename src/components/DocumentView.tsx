@@ -3,6 +3,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import rehypeSourcePositions from '../lib/remarkSourcePositions';
 import { selectionToMarkdownRange } from '../lib/selection';
 import { AnnotationPopover } from './AnnotationPopover';
@@ -42,34 +43,46 @@ export function DocumentView({
   const [pending, setPending] = useState<PendingAnnotation | null>(null);
   const [editing, setEditing] = useState<InlineEdit | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const mouseUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Handle text selection (mouseup)
+  // Delayed slightly so double-click can cancel it and take priority
   const handleMouseUp = useCallback(() => {
     if (editing) return;
 
-    const selection = window.getSelection();
-    if (!selection || !containerRef.current) return;
+    if (mouseUpTimerRef.current) clearTimeout(mouseUpTimerRef.current);
+    mouseUpTimerRef.current = setTimeout(() => {
+      mouseUpTimerRef.current = null;
 
-    const result = selectionToMarkdownRange(selection, containerRef.current);
-    if (!result) return;
+      const selection = window.getSelection();
+      if (!selection || !containerRef.current) return;
 
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
+      const result = selectionToMarkdownRange(selection, containerRef.current);
+      if (!result) return;
 
-    setPending({
-      selectedText: result.selectedText,
-      startOffset: result.startOffset,
-      endOffset: result.endOffset,
-      popoverPosition: {
-        x: rect.left,
-        y: rect.bottom,
-      },
-    });
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      setPending({
+        selectedText: result.selectedText,
+        startOffset: result.startOffset,
+        endOffset: result.endOffset,
+        popoverPosition: {
+          x: rect.left,
+          y: rect.bottom,
+        },
+      });
+    }, 250);
   }, [editing]);
 
   // Handle double-click for inline editing
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (pending) return;
+    // Cancel any pending mouseup annotation popover
+    if (mouseUpTimerRef.current) {
+      clearTimeout(mouseUpTimerRef.current);
+      mouseUpTimerRef.current = null;
+    }
+    setPending(null);
 
     // Don't edit if clicking on an existing highlight — that's for activating annotations
     if ((e.target as HTMLElement).closest('mark[data-annotation-id]')) return;
@@ -181,7 +194,7 @@ export function DocumentView({
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
       >
-        <ReactMarkdown rehypePlugins={[rehypeSourcePositions]}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSourcePositions]}>
           {markdown}
         </ReactMarkdown>
       </div>
