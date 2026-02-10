@@ -2,6 +2,7 @@
 // ABOUTME: Uses react-markdown with rehype source positions; post-processes DOM to apply highlight marks.
 
 import { useRef, useEffect, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSourcePositions from '../lib/remarkSourcePositions';
@@ -111,15 +112,16 @@ export function DocumentView({
     }
   }, [pending, markdown]);
 
-  // Focus textarea when editing starts
+  // Global Esc listener to cancel editing even if textarea loses focus
   useEffect(() => {
-    if (editing && editTextareaRef.current) {
-      const ta = editTextareaRef.current;
-      ta.focus();
-      // Place cursor at end
-      ta.selectionStart = ta.value.length;
-      ta.selectionEnd = ta.value.length;
-    }
+    if (!editing) return;
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setEditing(null);
+      }
+    };
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
   }, [editing]);
 
   const handleEditSave = useCallback(() => {
@@ -202,7 +204,6 @@ export function DocumentView({
       {/* Inline edit overlay */}
       {editing && (
         <InlineEditOverlay
-          markdown={markdown}
           editing={editing}
           containerRef={containerRef}
           textareaRef={editTextareaRef}
@@ -226,10 +227,10 @@ export function DocumentView({
 }
 
 /**
- * Overlay that replaces a rendered block with an editable textarea.
+ * Replaces a rendered block in-place with an editable textarea using a portal.
+ * Inserted into document flow so it pushes content down naturally.
  */
 function InlineEditOverlay({
-  markdown,
   editing,
   containerRef,
   textareaRef,
@@ -238,7 +239,6 @@ function InlineEditOverlay({
   onKeyDown,
   onInput,
 }: {
-  markdown: string;
   editing: InlineEdit;
   containerRef: React.RefObject<HTMLDivElement | null>;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -247,9 +247,9 @@ function InlineEditOverlay({
   onKeyDown: (e: React.KeyboardEvent) => void;
   onInput: (e: React.FormEvent<HTMLTextAreaElement>) => void;
 }) {
-  // Find the DOM element that matches this edit's source range
-  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
 
+  // Insert a placeholder div next to the target element in the DOM flow
   useEffect(() => {
     if (!containerRef.current) return;
     const elements = containerRef.current.querySelectorAll('[data-source-start][data-source-end]');
@@ -257,29 +257,39 @@ function InlineEditOverlay({
       const start = parseInt(el.getAttribute('data-source-start')!, 10);
       const end = parseInt(el.getAttribute('data-source-end')!, 10);
       if (start === editing.startOffset && end === editing.endOffset) {
-        const rect = el.getBoundingClientRect();
-        const containerRect = containerRef.current.getBoundingClientRect();
-        setPosition({
-          top: rect.top - containerRect.top,
-          left: rect.left - containerRect.left,
-          width: rect.width,
-        });
-        // Hide the original element while editing
-        (el as HTMLElement).style.opacity = '0';
+        const target = el as HTMLElement;
+        target.style.display = 'none';
+
+        const container = document.createElement('div');
+        target.parentNode!.insertBefore(container, target);
+        setPortalContainer(container);
+
         return () => {
-          (el as HTMLElement).style.opacity = '';
+          target.style.display = '';
+          container.remove();
+          setPortalContainer(null);
         };
       }
     }
-  }, [editing, containerRef, markdown]);
+  }, [editing, containerRef]);
 
-  if (!position) return null;
+  // Focus textarea once portal is mounted
+  useEffect(() => {
+    if (portalContainer && textareaRef.current) {
+      const ta = textareaRef.current;
+      ta.focus();
+      ta.selectionStart = ta.value.length;
+      ta.selectionEnd = ta.value.length;
+      // Auto-size to content
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+  }, [portalContainer, textareaRef]);
 
-  return (
-    <div
-      className="absolute z-30"
-      style={{ top: position.top, left: position.left, width: position.width }}
-    >
+  if (!portalContainer) return null;
+
+  return createPortal(
+    <div className="my-2">
       <textarea
         ref={textareaRef}
         defaultValue={editing.originalMarkdown}
@@ -307,7 +317,8 @@ function InlineEditOverlay({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    portalContainer,
   );
 }
 
