@@ -7,6 +7,8 @@ import type { Annotation } from '../lib/types';
 interface SidebarProps {
   annotations: Annotation[];
   activeAnnotationId: string | null;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onActivate: (id: string) => void;
   onUpdate: (id: string, note: string) => void;
   onDelete: (id: string) => void;
@@ -15,46 +17,85 @@ interface SidebarProps {
 export function Sidebar({
   annotations,
   activeAnnotationId,
+  collapsed,
+  onToggleCollapse,
   onActivate,
   onUpdate,
   onDelete,
 }: SidebarProps) {
   return (
-    <aside className="w-80 shrink-0 border-l border-cream-300 dark:border-ink-700 bg-cream-50/50 dark:bg-ink-900/50 flex flex-col h-full">
+    <aside
+      className={`shrink-0 border-l border-cream-300 dark:border-ink-700 bg-cream-50/50 dark:bg-ink-900/50 flex flex-col h-full transition-[width] duration-300 ease-in-out ${
+        collapsed ? 'w-10' : 'w-80'
+      }`}
+    >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-cream-200 dark:border-ink-700">
-        <h2 className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-300 dark:text-ink-400">
-          Notes
-          {annotations.length > 0 && (
-            <span className="ml-2 text-ink-200 dark:text-ink-500 font-normal">
-              {annotations.length}
-            </span>
-          )}
-        </h2>
+      <div className={`flex items-center border-b border-cream-200 dark:border-ink-700 ${collapsed ? 'justify-center py-3' : 'px-5 py-4 justify-between'}`}>
+        {!collapsed && (
+          <h2 className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-300 dark:text-ink-400">
+            Notes
+            {annotations.length > 0 && (
+              <span className="ml-2 text-ink-200 dark:text-ink-500 font-normal">
+                {annotations.length}
+              </span>
+            )}
+          </h2>
+        )}
+        <button
+          onClick={onToggleCollapse}
+          className="p-1 rounded text-ink-300 hover:text-ink-500 dark:text-ink-400 dark:hover:text-ink-200 transition-colors"
+          aria-label={collapsed ? 'Expand notes panel' : 'Collapse notes panel'}
+          title={collapsed ? 'Expand notes panel' : 'Collapse notes panel'}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`}
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
       </div>
 
       {/* Annotation cards */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
-        {annotations.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-sm text-ink-200 dark:text-ink-500 font-sans">
-              Select text or double-click to annotate
-            </p>
-          </div>
-        ) : (
-          annotations.map((annotation, index) => (
-            <AnnotationCard
-              key={annotation.id}
-              annotation={annotation}
-              index={index}
-              isActive={annotation.id === activeAnnotationId}
-              onActivate={onActivate}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))
-        )}
-      </div>
+      {!collapsed && (
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          {annotations.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-ink-200 dark:text-ink-500 font-sans">
+                Select text or double-click to annotate
+              </p>
+            </div>
+          ) : (
+            annotations.map((annotation, index) => (
+              <AnnotationCard
+                key={annotation.id}
+                annotation={annotation}
+                index={index}
+                isActive={annotation.id === activeAnnotationId}
+                onActivate={onActivate}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Collapsed badge showing count */}
+      {collapsed && annotations.length > 0 && (
+        <div className="flex justify-center pt-3">
+          <span className="text-[10px] font-mono font-medium text-sienna-500 dark:text-sienna-400">
+            {annotations.length}
+          </span>
+        </div>
+      )}
     </aside>
   );
 }

@@ -36,6 +36,11 @@ export function useAnnotations() {
     setActiveAnnotationId((prev) => (prev === id ? null : prev));
   }, []);
 
+  const clearAnnotations = useCallback(() => {
+    setAnnotations([]);
+    setActiveAnnotationId(null);
+  }, []);
+
   /**
    * Shifts annotation offsets after an inline edit changes the markdown source.
    * Annotations fully inside the edited range are removed.
@@ -88,6 +93,7 @@ export function useAnnotations() {
     addAnnotation,
     updateAnnotation,
     deleteAnnotation,
+    clearAnnotations,
     shiftAnnotations,
   };
 }
