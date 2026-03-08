@@ -1,7 +1,7 @@
 // ABOUTME: State management hook for annotations.
 // ABOUTME: Provides CRUD operations for annotations and tracks the active/focused annotation.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Annotation } from '../lib/types';
 
@@ -81,9 +81,9 @@ export function useAnnotations() {
     [],
   );
 
-  // Sorted by position in document
-  const sortedAnnotations = [...annotations].sort(
-    (a, b) => a.markdownStartOffset - b.markdownStartOffset,
+  const sortedAnnotations = useMemo(
+    () => [...annotations].sort((a, b) => a.markdownStartOffset - b.markdownStartOffset),
+    [annotations],
   );
 
   return {

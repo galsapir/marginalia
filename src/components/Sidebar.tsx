@@ -3,6 +3,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Annotation } from '../lib/types';
+import { useDragResize } from '../hooks/useDragResize';
+
+const COLLAPSED_WIDTH = 40;
 
 interface SidebarProps {
   annotations: Annotation[];
@@ -23,12 +26,20 @@ export function Sidebar({
   onUpdate,
   onDelete,
 }: SidebarProps) {
+  const { width, handleMouseDown } = useDragResize();
+
   return (
     <aside
-      className={`shrink-0 border-l border-cream-300 dark:border-ink-700 bg-cream-50/50 dark:bg-ink-900/50 flex flex-col h-full transition-[width] duration-300 ease-in-out ${
-        collapsed ? 'w-10' : 'w-80'
-      }`}
+      className="shrink-0 border-l border-cream-300 dark:border-ink-700 bg-cream-50/50 dark:bg-ink-900/50 flex flex-col h-full relative"
+      style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
     >
+      {/* Drag handle (only when expanded) */}
+      {!collapsed && (
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-sienna-400/30 active:bg-sienna-400/40 transition-colors"
+        />
+      )}
       {/* Header */}
       <div className={`flex items-center border-b border-cream-200 dark:border-ink-700 ${collapsed ? 'justify-center py-3' : 'px-5 py-4 justify-between'}`}>
         {!collapsed && (
