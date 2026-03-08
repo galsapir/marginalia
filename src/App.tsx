@@ -66,11 +66,7 @@ export default function App() {
   const handleAnnotationActivate = useCallback(
     (id: string) => {
       setActiveAnnotationId(id);
-      // Scroll to the highlight in the document
-      const mark = document.querySelector(`mark[data-annotation-id="${id}"]`);
-      if (mark) {
-        mark.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
+      // DocumentView's useEffect handles scrolling the mark into view
     },
     [setActiveAnnotationId],
   );

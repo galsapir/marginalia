@@ -34,23 +34,35 @@ export function Sidebar({
   const cardAreaRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [cardPositions, setCardPositions] = useState<Map<string, number>>(new Map());
+  const [cardAreaMinHeight, setCardAreaMinHeight] = useState(0);
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
+  const measureFrameRef = useRef(0);
 
   const measure = useCallback(() => {
     const scrollContainer = scrollContainerRef.current;
     const cardArea = cardAreaRef.current;
-    if (!scrollContainer || !cardArea || annotations.length === 0) {
+    const currentAnnotations = annotationsRef.current;
+    if (!scrollContainer || !cardArea || currentAnnotations.length === 0) {
       setCardPositions(new Map());
+      setCardAreaMinHeight(0);
       return;
     }
 
     const cardAreaRect = cardArea.getBoundingClientRect();
     const headerHeight = headerRef.current?.offsetHeight ?? 52;
 
+    // Single DOM traversal instead of N querySelector calls
+    const marks = scrollContainer.querySelectorAll('mark[data-annotation-id]');
+    const marksByAnnotationId = new Map<string, Element>();
+    for (const mark of marks) {
+      const id = mark.getAttribute('data-annotation-id');
+      if (id) marksByAnnotationId.set(id, mark);
+    }
+
     const items: { id: string; idealY: number; height: number }[] = [];
-    for (const annotation of annotations) {
-      const mark = scrollContainer.querySelector(
-        `mark[data-annotation-id="${annotation.id}"]`,
-      );
+    for (const annotation of currentAnnotations) {
+      const mark = marksByAnnotationId.get(annotation.id);
       if (mark) {
         const markRect = mark.getBoundingClientRect();
         const idealY = markRect.top - cardAreaRect.top;
@@ -68,53 +80,56 @@ export function Sidebar({
     // Resolve collisions: each card starts at max(idealY, previous card bottom)
     const resolved = new Map<string, number>();
     let nextY = headerHeight;
+    let maxBottom = 0;
     for (const { id, idealY, height } of items) {
       const y = Math.max(idealY, nextY);
       resolved.set(id, y);
       nextY = y + height + CARD_GAP;
+      maxBottom = y + height;
     }
 
     setCardPositions(resolved);
-  }, [annotations, scrollContainerRef]);
+    setCardAreaMinHeight(maxBottom);
+  }, [scrollContainerRef]);
 
-  // Measure after marks are rendered
+  // Throttled measure via rAF to avoid excessive calls during drag resize
+  const scheduleMeasure = useCallback(() => {
+    cancelAnimationFrame(measureFrameRef.current);
+    measureFrameRef.current = requestAnimationFrame(measure);
+  }, [measure]);
+
+  // Measure after annotations change (deferred to let marks render)
   useEffect(() => {
     if (collapsed || annotations.length === 0) {
       setCardPositions(new Map());
+      setCardAreaMinHeight(0);
       return;
     }
-    const frame = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(frame);
-  }, [collapsed, measure]);
+    scheduleMeasure();
+    return () => cancelAnimationFrame(measureFrameRef.current);
+  }, [collapsed, annotations, scheduleMeasure]);
 
-  // Re-measure on container resize or card height changes
+  // Stable ResizeObserver — only observes the card area container
   useEffect(() => {
     if (collapsed) return;
+    const cardArea = cardAreaRef.current;
     const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return;
+    if (!cardArea || !scrollContainer) return;
 
-    const observer = new ResizeObserver(() => measure());
+    const observer = new ResizeObserver(scheduleMeasure);
     observer.observe(scrollContainer);
-    for (const card of cardElements.current.values()) {
-      observer.observe(card);
-    }
+    observer.observe(cardArea);
     return () => observer.disconnect();
-  }, [collapsed, measure, scrollContainerRef]);
+  }, [collapsed, scheduleMeasure, scrollContainerRef]);
 
   const setCardRef = useCallback((id: string, el: HTMLDivElement | null) => {
-    if (el) cardElements.current.set(id, el);
-    else cardElements.current.delete(id);
-  }, []);
-
-  // Compute container min-height so sidebar extends to fit all cards
-  let cardAreaMinHeight = 0;
-  if (cardPositions.size > 0) {
-    for (const [id, top] of cardPositions) {
-      const card = cardElements.current.get(id);
-      const bottom = top + (card?.offsetHeight ?? 100);
-      if (bottom > cardAreaMinHeight) cardAreaMinHeight = bottom;
+    if (el) {
+      cardElements.current.set(id, el);
+      scheduleMeasure();
+    } else {
+      cardElements.current.delete(id);
     }
-  }
+  }, [scheduleMeasure]);
 
   return (
     <aside
