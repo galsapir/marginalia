@@ -1,7 +1,7 @@
 // ABOUTME: Main application shell for Marginalia.
 // ABOUTME: Manages top-level state and layout — input view, document+sidebar, toolbar.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useTheme } from './hooks/useTheme';
 import { useFileDrop } from './hooks/useFileDrop';
@@ -18,6 +18,7 @@ export default function App() {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
   const {
     annotations,
@@ -135,36 +136,39 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main content area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Document */}
-        <main className="flex-1 overflow-y-auto px-12 py-8 lg:px-20 xl:px-28">
-          <div className="max-w-3xl mx-auto">
-            {viewMode === 'rendered' ? (
-              <DocumentView
-                markdown={markdown}
-                annotations={annotations}
-                activeAnnotationId={activeAnnotationId}
-                onAddAnnotation={addAnnotation}
-                onActivateAnnotation={handleAnnotationActivate}
-                onEditMarkdown={handleEditMarkdown}
-              />
-            ) : (
-              <RawView markdown={markdown} />
-            )}
-          </div>
-        </main>
+      {/* Main content area — single scroll container for document + sidebar */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+        <div className="flex min-h-full">
+          {/* Document */}
+          <main className="flex-1 px-12 py-8 lg:px-20 xl:px-28">
+            <div className="max-w-3xl mx-auto">
+              {viewMode === 'rendered' ? (
+                <DocumentView
+                  markdown={markdown}
+                  annotations={annotations}
+                  activeAnnotationId={activeAnnotationId}
+                  onAddAnnotation={addAnnotation}
+                  onActivateAnnotation={handleAnnotationActivate}
+                  onEditMarkdown={handleEditMarkdown}
+                />
+              ) : (
+                <RawView markdown={markdown} />
+              )}
+            </div>
+          </main>
 
-        {/* Sidebar */}
-        <Sidebar
-          annotations={annotations}
-          activeAnnotationId={activeAnnotationId}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-          onActivate={handleAnnotationActivate}
-          onUpdate={updateAnnotation}
-          onDelete={deleteAnnotation}
-        />
+          {/* Sidebar */}
+          <Sidebar
+            annotations={annotations}
+            activeAnnotationId={activeAnnotationId}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+            onActivate={handleAnnotationActivate}
+            onUpdate={updateAnnotation}
+            onDelete={deleteAnnotation}
+            scrollContainerRef={scrollContainerRef}
+          />
+        </div>
       </div>
     </div>
   );
