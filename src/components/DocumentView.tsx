@@ -197,7 +197,17 @@ export function DocumentView({
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSourcePositions]}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeSourcePositions]}
+          components={{
+            table: ({ children, ...props }) => (
+              <div className="table-scroll-container">
+                <table {...props}>{children}</table>
+              </div>
+            ),
+          }}
+        >
           {markdown}
         </ReactMarkdown>
       </div>
