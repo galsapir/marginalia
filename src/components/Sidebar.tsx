@@ -12,6 +12,7 @@ interface SidebarProps {
   annotations: Annotation[];
   activeAnnotationId: string | null;
   collapsed: boolean;
+  focusMode: boolean;
   onToggleCollapse: () => void;
   onActivate: (id: string) => void;
   onUpdate: (id: string, note: string) => void;
@@ -23,6 +24,7 @@ export function Sidebar({
   annotations,
   activeAnnotationId,
   collapsed,
+  focusMode,
   onToggleCollapse,
   onActivate,
   onUpdate,
@@ -100,18 +102,18 @@ export function Sidebar({
 
   // Measure after annotations change (deferred to let marks render)
   useEffect(() => {
-    if (collapsed || annotations.length === 0) {
+    if (collapsed || focusMode || annotations.length === 0) {
       setCardPositions(new Map());
       setCardAreaMinHeight(0);
       return;
     }
     scheduleMeasure();
     return () => cancelAnimationFrame(measureFrameRef.current);
-  }, [collapsed, annotations, scheduleMeasure]);
+  }, [collapsed, focusMode, annotations, scheduleMeasure]);
 
   // Stable ResizeObserver — only observes the card area container
   useEffect(() => {
-    if (collapsed) return;
+    if (collapsed || focusMode) return;
     const cardArea = cardAreaRef.current;
     const scrollContainer = scrollContainerRef.current;
     if (!cardArea || !scrollContainer) return;
@@ -133,8 +135,14 @@ export function Sidebar({
 
   return (
     <aside
-      className="shrink-0 border-l border-cream-300 dark:border-ink-700 bg-cream-50/50 dark:bg-ink-900/50 relative"
-      style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
+      className="shrink-0 border-l border-cream-300 dark:border-ink-700 bg-cream-50/50 dark:bg-ink-900/50 relative overflow-hidden transition-[width,opacity,border-color] duration-300 ease-out"
+      style={{
+        width: focusMode ? 0 : (collapsed ? COLLAPSED_WIDTH : width),
+        opacity: focusMode ? 0 : 1,
+        pointerEvents: focusMode ? 'none' : 'auto',
+        borderLeftColor: focusMode ? 'transparent' : undefined,
+      }}
+      aria-hidden={focusMode}
     >
       {/* Drag handle (only when expanded) */}
       {!collapsed && (

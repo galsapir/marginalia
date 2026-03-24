@@ -150,7 +150,10 @@ export default function App() {
         <div className="flex min-h-full">
           {/* Document */}
           <main className="flex-1 px-12 py-8 lg:px-20 xl:px-28">
-            <div className={focusMode ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
+            <div
+              className="mx-auto transition-[max-width] duration-300 ease-out"
+              style={{ maxWidth: focusMode ? '64rem' : '48rem' }}
+            >
               {viewMode === 'rendered' ? (
                 <DocumentView
                   markdown={markdown}
@@ -158,6 +161,8 @@ export default function App() {
                   activeAnnotationId={activeAnnotationId}
                   onAddAnnotation={addAnnotation}
                   onActivateAnnotation={handleAnnotationActivate}
+                  onUpdateAnnotation={updateAnnotation}
+                  onDeleteAnnotation={deleteAnnotation}
                   onEditMarkdown={handleEditMarkdown}
                 />
               ) : (
@@ -166,19 +171,18 @@ export default function App() {
             </div>
           </main>
 
-          {/* Sidebar — hidden in focus mode */}
-          {!focusMode && (
-            <Sidebar
-              annotations={annotations}
-              activeAnnotationId={activeAnnotationId}
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-              onActivate={handleAnnotationActivate}
-              onUpdate={updateAnnotation}
-              onDelete={deleteAnnotation}
-              scrollContainerRef={scrollContainerRef}
-            />
-          )}
+          {/* Sidebar — animates out in focus mode */}
+          <Sidebar
+            annotations={annotations}
+            activeAnnotationId={activeAnnotationId}
+            collapsed={sidebarCollapsed}
+            focusMode={focusMode}
+            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+            onActivate={handleAnnotationActivate}
+            onUpdate={updateAnnotation}
+            onDelete={deleteAnnotation}
+            scrollContainerRef={scrollContainerRef}
+          />
         </div>
       </div>
     </div>

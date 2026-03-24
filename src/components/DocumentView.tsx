@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSourcePositions from '../lib/remarkSourcePositions';
 import { selectionToMarkdownRange } from '../lib/selection';
 import { AnnotationPopover } from './AnnotationPopover';
+import { NotePopover } from './NotePopover';
 import type { Annotation } from '../lib/types';
 
 interface DocumentViewProps {
@@ -16,6 +17,8 @@ interface DocumentViewProps {
   activeAnnotationId: string | null;
   onAddAnnotation: (selectedText: string, note: string, startOffset: number, endOffset: number) => string;
   onActivateAnnotation: (id: string) => void;
+  onUpdateAnnotation: (id: string, note: string) => void;
+  onDeleteAnnotation: (id: string) => void;
   onEditMarkdown: (startOffset: number, endOffset: number, newText: string) => void;
 }
 
@@ -38,6 +41,8 @@ export function DocumentView({
   activeAnnotationId,
   onAddAnnotation,
   onActivateAnnotation,
+  onUpdateAnnotation,
+  onDeleteAnnotation,
   onEditMarkdown,
 }: DocumentViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,11 +50,48 @@ export function DocumentView({
   const [editing, setEditing] = useState<InlineEdit | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const mouseUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [notePopover, setNotePopover] = useState<{
+    annotationId: string;
+    position: { x: number; y: number; markTop: number };
+  } | null>(null);
+  const notePopoverIdRef = useRef<string | null>(null);
+
+  // Keep ref in sync for stable handleMarkClick
+  useEffect(() => {
+    notePopoverIdRef.current = notePopover?.annotationId ?? null;
+  }, [notePopover]);
+
+  // Dismiss popover if its annotation was deleted
+  useEffect(() => {
+    if (notePopover && !annotations.find(a => a.id === notePopover.annotationId)) {
+      setNotePopover(null);
+    }
+  }, [annotations, notePopover]);
+
+  // Handle mark click — show/toggle note popover
+  const handleMarkClick = useCallback((id: string) => {
+    if (notePopoverIdRef.current === id) {
+      setNotePopover(null);
+      return;
+    }
+
+    onActivateAnnotation(id);
+
+    const mark = containerRef.current?.querySelector(`mark[data-annotation-id="${id}"]`);
+    if (mark) {
+      const rect = mark.getBoundingClientRect();
+      setNotePopover({
+        annotationId: id,
+        position: { x: rect.left, y: rect.bottom, markTop: rect.top },
+      });
+    }
+  }, [onActivateAnnotation]);
 
   // Handle text selection (mouseup)
   // Delayed slightly so double-click can cancel it and take priority
   const handleMouseUp = useCallback(() => {
     if (editing) return;
+    setNotePopover(null);
 
     if (mouseUpTimerRef.current) clearTimeout(mouseUpTimerRef.current);
     mouseUpTimerRef.current = setTimeout(() => {
@@ -85,6 +127,7 @@ export function DocumentView({
       mouseUpTimerRef.current = null;
     }
     setPending(null);
+    setNotePopover(null);
 
     // Don't edit if clicking on an existing highlight — that's for activating annotations
     if ((e.target as HTMLElement).closest('mark[data-annotation-id]')) return;
@@ -170,8 +213,8 @@ export function DocumentView({
   // Apply annotation highlights to the rendered DOM
   useEffect(() => {
     if (!containerRef.current || editing) return;
-    applyHighlights(containerRef.current, annotations, activeAnnotationId, onActivateAnnotation);
-  }, [annotations, activeAnnotationId, markdown, onActivateAnnotation, editing]);
+    applyHighlights(containerRef.current, annotations, activeAnnotationId, handleMarkClick);
+  }, [annotations, activeAnnotationId, markdown, handleMarkClick, editing]);
 
   // Scroll to active annotation highlight in document
   useEffect(() => {
@@ -233,6 +276,23 @@ export function DocumentView({
           onDismiss={handlePopoverDismiss}
         />
       )}
+
+      {notePopover && (() => {
+        const annotation = annotations.find(a => a.id === notePopover.annotationId);
+        const annotationIndex = annotations.findIndex(a => a.id === notePopover.annotationId);
+        if (!annotation) return null;
+        return (
+          <NotePopover
+            key={notePopover.annotationId}
+            annotation={annotation}
+            index={annotationIndex}
+            position={notePopover.position}
+            onDismiss={() => setNotePopover(null)}
+            onUpdate={onUpdateAnnotation}
+            onDelete={onDeleteAnnotation}
+          />
+        );
+      })()}
     </div>
   );
 }
