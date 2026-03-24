@@ -18,6 +18,7 @@ export default function App() {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
   const {
@@ -123,8 +124,20 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right: Export + theme */}
+          {/* Right: Focus + Export + theme */}
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setFocusMode((prev) => !prev)}
+              className={`px-3 py-1 text-xs font-sans font-medium rounded-md transition-colors ${
+                focusMode
+                  ? 'bg-sienna-400 text-cream-50'
+                  : 'text-ink-400 dark:text-ink-300 hover:text-ink-600 dark:hover:text-ink-100'
+              }`}
+              title={focusMode ? 'Exit focus mode' : 'Focus mode — hide notes, expand reading area'}
+            >
+              Focus
+            </button>
+            <div className="w-px h-5 bg-cream-300 dark:bg-ink-700" />
             <ExportControls markdown={markdown} annotations={annotations} />
             <div className="w-px h-5 bg-cream-300 dark:bg-ink-700" />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -137,7 +150,7 @@ export default function App() {
         <div className="flex min-h-full">
           {/* Document */}
           <main className="flex-1 px-12 py-8 lg:px-20 xl:px-28">
-            <div className="max-w-3xl mx-auto">
+            <div className={focusMode ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
               {viewMode === 'rendered' ? (
                 <DocumentView
                   markdown={markdown}
@@ -153,17 +166,19 @@ export default function App() {
             </div>
           </main>
 
-          {/* Sidebar */}
-          <Sidebar
-            annotations={annotations}
-            activeAnnotationId={activeAnnotationId}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-            onActivate={handleAnnotationActivate}
-            onUpdate={updateAnnotation}
-            onDelete={deleteAnnotation}
-            scrollContainerRef={scrollContainerRef}
-          />
+          {/* Sidebar — hidden in focus mode */}
+          {!focusMode && (
+            <Sidebar
+              annotations={annotations}
+              activeAnnotationId={activeAnnotationId}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+              onActivate={handleAnnotationActivate}
+              onUpdate={updateAnnotation}
+              onDelete={deleteAnnotation}
+              scrollContainerRef={scrollContainerRef}
+            />
+          )}
         </div>
       </div>
     </div>
