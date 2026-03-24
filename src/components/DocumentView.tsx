@@ -197,7 +197,17 @@ export function DocumentView({
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSourcePositions]}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeSourcePositions]}
+          components={{
+            table: ({ children, ...props }) => (
+              <div className="table-scroll-container">
+                <table {...props}>{children}</table>
+              </div>
+            ),
+          }}
+        >
           {markdown}
         </ReactMarkdown>
       </div>
@@ -366,15 +376,28 @@ function wrapAnnotationRange(
   isActive: boolean,
   onActivate: (id: string) => void,
 ) {
-  const elements = container.querySelectorAll('[data-source-start][data-source-end]');
+  const allElements = container.querySelectorAll('[data-source-start][data-source-end]');
+
+  // Collect elements whose source range overlaps the annotation
+  const overlapping: Element[] = [];
+  for (const el of allElements) {
+    const elStart = parseInt(el.getAttribute('data-source-start')!, 10);
+    const elEnd = parseInt(el.getAttribute('data-source-end')!, 10);
+    if (elStart < annotation.markdownEndOffset && elEnd > annotation.markdownStartOffset) {
+      overlapping.push(el);
+    }
+  }
+
+  // Filter out ancestors when a more specific descendant exists.
+  // Using ancestors (e.g. <table>) causes wrong highlights because markdown-space
+  // offsets don't map 1:1 to rendered-text character positions.
+  const elements = overlapping.filter(el =>
+    !overlapping.some(other => other !== el && el.contains(other))
+  );
 
   for (const el of elements) {
     const elStart = parseInt(el.getAttribute('data-source-start')!, 10);
     const elEnd = parseInt(el.getAttribute('data-source-end')!, 10);
-
-    if (elStart >= annotation.markdownEndOffset || elEnd <= annotation.markdownStartOffset) {
-      continue;
-    }
 
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     const textNodes: Text[] = [];

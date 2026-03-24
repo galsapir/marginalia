@@ -171,10 +171,14 @@ body {
   border-top-color: var(--color-ink-600);
 }
 
+.markdown-body .table-scroll-container {
+  overflow-x: auto;
+  margin-bottom: 1.25em;
+}
+
 .markdown-body table {
   border-collapse: collapse;
   width: 100%;
-  margin-bottom: 1.25em;
 }
 
 .markdown-body th,
