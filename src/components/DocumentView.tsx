@@ -89,9 +89,12 @@ export function DocumentView({
 
   // Handle text selection (mouseup)
   // Delayed slightly so double-click can cancel it and take priority
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (editing) return;
-    setNotePopover(null);
+    // Don't dismiss popover when clicking a mark — handleMarkClick manages that
+    if (!(e.target as HTMLElement).closest('mark[data-annotation-id]')) {
+      setNotePopover(null);
+    }
 
     if (mouseUpTimerRef.current) clearTimeout(mouseUpTimerRef.current);
     mouseUpTimerRef.current = setTimeout(() => {
