@@ -13,6 +13,7 @@ export const changelog: ChangelogEntry[] = [
       'Click a highlight to see its note in a floating popover',
       'Smooth animation when toggling focus mode',
       'Clearing a note now deletes the annotation',
+      'Fix highlights not wrapping across bold/italic/code boundaries',
     ],
   },
   {
