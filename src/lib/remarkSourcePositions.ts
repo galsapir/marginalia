@@ -34,7 +34,7 @@ const rehypeSourcePositions: Plugin<[], Root> = () => {
             }
             for (let i = node.children.length - 1; i >= 0; i--) {
               if (node.children[i].position?.end.offset !== undefined) {
-                contentEnd = node.children[i].position.end.offset;
+                contentEnd = node.children[i].position!.end.offset;
                 break;
               }
             }
