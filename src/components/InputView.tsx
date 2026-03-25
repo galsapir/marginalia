@@ -4,14 +4,22 @@
 import { useState, useCallback } from 'react';
 import { useFileDrop } from '../hooks/useFileDrop';
 import { DropOverlay } from './DropOverlay';
+import { changelog } from '../lib/changelog';
 
 interface InputViewProps {
   onSubmit: (markdown: string) => void;
 }
 
+const buildDate = new Date(__BUILD_TIMESTAMP__).toLocaleDateString('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+
 export function InputView({ onSubmit }: InputViewProps) {
   const [text, setText] = useState('');
   const [dragError, setDragError] = useState<string | null>(null);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -96,6 +104,43 @@ export function InputView({ onSubmit }: InputViewProps) {
         <p className="mt-6 text-center text-xs text-ink-200 dark:text-ink-500 font-sans">
           Paste markdown, drag &amp; drop a .md file, then highlight text to add annotations
         </p>
+
+        {/* Version footer */}
+        <div className="mt-16 border-t border-cream-200 dark:border-ink-700 pt-4">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-[10px] font-mono text-ink-200 dark:text-ink-500">
+              {buildDate}
+            </span>
+            <button
+              onClick={() => setChangelogOpen((prev) => !prev)}
+              className="text-[10px] font-sans text-ink-300 dark:text-ink-400 hover:text-sienna-500 dark:hover:text-sienna-400 transition-colors"
+            >
+              {changelogOpen ? 'Hide' : "What's new"}
+            </button>
+          </div>
+
+          {changelogOpen && (
+            <div className="mt-4 max-h-64 overflow-y-auto">
+              {changelog.slice(0, 5).map((entry) => (
+                <div key={entry.date} className="mb-3">
+                  <p className="text-[10px] font-mono text-ink-300 dark:text-ink-400 mb-1">
+                    {entry.date}
+                  </p>
+                  <ul className="space-y-0.5">
+                    {entry.changes.map((change) => (
+                      <li
+                        key={change}
+                        className="text-xs font-sans text-ink-400 dark:text-ink-300 pl-3 relative before:content-['·'] before:absolute before:left-0 before:text-sienna-400"
+                      >
+                        {change}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
