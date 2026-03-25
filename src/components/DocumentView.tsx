@@ -425,28 +425,30 @@ function applyHighlights(
     (a, b) => b.markdownStartOffset - a.markdownStartOffset,
   );
 
+  // Collect text nodes once — must snapshot before DOM mutation (surroundContents splits nodes)
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    textNodes.push(n as Text);
+  }
+
   for (const annotation of sorted) {
-    wrapAnnotationRange(container, annotation, activeId === annotation.id, onActivate);
+    wrapAnnotationRange(container, textNodes, annotation, activeId === annotation.id, onActivate);
   }
 }
 
 /**
  * Wraps the text corresponding to an annotation's markdown range with <mark> elements.
- * Iterates all text nodes, computes their markdown position via the positions utility,
- * and wraps any overlapping portions. Handles cross-element annotations correctly.
+ * Handles cross-element annotations correctly.
  */
 function wrapAnnotationRange(
   container: HTMLElement,
+  textNodes: Text[],
   annotation: Annotation,
   isActive: boolean,
   onActivate: (id: string) => void,
 ) {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
-    textNodes.push(node as Text);
-  }
 
   for (const textNode of textNodes) {
     if (textNode.parentElement?.tagName === 'MARK') continue;
