@@ -84,11 +84,15 @@ export function NotePopover({
   }, [isEditing]);
 
   const handleSave = useCallback(() => {
-    if (editText.trim()) {
-      onUpdate(annotation.id, editText.trim());
+    if (!editText.trim()) {
+      // Empty note — treat as delete
+      onDelete(annotation.id);
+      onDismiss();
+      return;
     }
+    onUpdate(annotation.id, editText.trim());
     setIsEditing(false);
-  }, [editText, annotation.id, onUpdate]);
+  }, [editText, annotation.id, onUpdate, onDelete, onDismiss]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
