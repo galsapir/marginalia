@@ -1,5 +1,7 @@
 // ABOUTME: Maps DOM text selections to markdown source positions.
-// ABOUTME: Walks the DOM selection range to find elements with remark source position data attributes.
+// ABOUTME: Uses position utilities to correctly handle inline formatting syntax offsets.
+
+import { getTextNodeMarkdownRange } from './positions';
 
 interface MarkdownRange {
   startOffset: number;
@@ -28,9 +30,8 @@ export function selectionToMarkdownRange(
   const selectedText = selection.toString().trim();
   if (!selectedText) return null;
 
-  // Find nearest elements with source position data attributes
-  const startPos = findSourcePosition(range.startContainer, range.startOffset, 'start');
-  const endPos = findSourcePosition(range.endContainer, range.endOffset, 'end');
+  const startPos = getMarkdownOffset(range.startContainer, range.startOffset, containerEl);
+  const endPos = getMarkdownOffset(range.endContainer, range.endOffset, containerEl);
 
   if (startPos === null || endPos === null) return null;
 
@@ -42,64 +43,50 @@ export function selectionToMarkdownRange(
 }
 
 /**
- * Walks up from a text node to find the nearest ancestor with data-source-start/end attributes,
- * then computes the character offset within the markdown source.
+ * Converts a DOM position (node + character offset) to a markdown source offset.
+ * For text nodes, uses the position mapping utility.
+ * For element nodes, finds the boundary text position.
  */
-function findSourcePosition(
+function getMarkdownOffset(
   node: Node,
-  offset: number,
-  which: 'start' | 'end',
+  charOffset: number,
+  container: HTMLElement,
 ): number | null {
-  let el: HTMLElement | null =
-    node.nodeType === Node.ELEMENT_NODE
-      ? (node as HTMLElement)
-      : node.parentElement;
+  if (node.nodeType === Node.TEXT_NODE) {
+    const mdRange = getTextNodeMarkdownRange(node as Text, container);
+    if (!mdRange) return null;
+    return mdRange.start + charOffset;
+  }
 
-  while (el) {
-    const sourceStart = el.getAttribute('data-source-start');
-    const sourceEnd = el.getAttribute('data-source-end');
-
-    if (sourceStart !== null && sourceEnd !== null) {
-      const start = parseInt(sourceStart, 10);
-      const end = parseInt(sourceEnd, 10);
-
-      if (which === 'start') {
-        // Calculate text offset within this element up to the selection start
-        const textBefore = getTextOffsetInElement(el, node, offset);
-        return Math.min(start + textBefore, end);
-      } else {
-        const textBefore = getTextOffsetInElement(el, node, offset);
-        return Math.min(start + textBefore, end);
+  // Element node: offset is a child index (DOM Selection spec).
+  // Find the text boundary at that child index.
+  const el = node as Element;
+  if (charOffset === 0) {
+    // Start of element — find first text node
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const firstText = walker.nextNode() as Text | null;
+    if (firstText) {
+      const mdRange = getTextNodeMarkdownRange(firstText, container);
+      return mdRange?.start ?? null;
+    }
+  } else {
+    // End of element or mid-child — find the last text node up to this child index
+    const targetChild = el.childNodes[Math.min(charOffset, el.childNodes.length) - 1];
+    if (targetChild) {
+      const walker = document.createTreeWalker(
+        targetChild.nodeType === Node.ELEMENT_NODE ? targetChild as Element : el,
+        NodeFilter.SHOW_TEXT,
+      );
+      let lastText: Text | null = null;
+      let n: Node | null;
+      while ((n = walker.nextNode())) lastText = n as Text;
+      if (lastText) {
+        const mdRange = getTextNodeMarkdownRange(lastText, container);
+        if (!mdRange) return null;
+        return mdRange.end;
       }
     }
-
-    el = el.parentElement;
   }
 
   return null;
-}
-
-/**
- * Counts the text content length from the start of `root` up to the point
- * defined by (targetNode, targetOffset) using a TreeWalker.
- */
-function getTextOffsetInElement(
-  root: HTMLElement,
-  targetNode: Node,
-  targetOffset: number,
-): number {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let count = 0;
-
-  let currentNode = walker.nextNode();
-  while (currentNode) {
-    if (currentNode === targetNode) {
-      return count + targetOffset;
-    }
-    count += (currentNode.textContent?.length ?? 0);
-    currentNode = walker.nextNode();
-  }
-
-  // If targetNode is the element itself (not a text node within it)
-  return count;
 }

@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSourcePositions from '../lib/remarkSourcePositions';
 import { selectionToMarkdownRange } from '../lib/selection';
+import { getTextNodeMarkdownRange } from '../lib/positions';
 import { AnnotationPopover } from './AnnotationPopover';
 import { NotePopover } from './NotePopover';
 import type { Annotation } from '../lib/types';
@@ -424,87 +425,64 @@ function applyHighlights(
     (a, b) => b.markdownStartOffset - a.markdownStartOffset,
   );
 
+  // Collect text nodes once — must snapshot before DOM mutation (surroundContents splits nodes)
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    textNodes.push(n as Text);
+  }
+
   for (const annotation of sorted) {
-    wrapAnnotationRange(container, annotation, activeId === annotation.id, onActivate);
+    wrapAnnotationRange(container, textNodes, annotation, activeId === annotation.id, onActivate);
   }
 }
 
 /**
- * Wraps the text corresponding to an annotation's markdown range with a <mark> element.
- * Finds elements with matching source positions and wraps the appropriate text nodes.
+ * Wraps the text corresponding to an annotation's markdown range with <mark> elements.
+ * Handles cross-element annotations correctly.
  */
 function wrapAnnotationRange(
   container: HTMLElement,
+  textNodes: Text[],
   annotation: Annotation,
   isActive: boolean,
   onActivate: (id: string) => void,
 ) {
-  const allElements = container.querySelectorAll('[data-source-start][data-source-end]');
 
-  // Collect elements whose source range overlaps the annotation
-  const overlapping: Element[] = [];
-  for (const el of allElements) {
-    const elStart = parseInt(el.getAttribute('data-source-start')!, 10);
-    const elEnd = parseInt(el.getAttribute('data-source-end')!, 10);
-    if (elStart < annotation.markdownEndOffset && elEnd > annotation.markdownStartOffset) {
-      overlapping.push(el);
-    }
-  }
+  for (const textNode of textNodes) {
+    if (textNode.parentElement?.tagName === 'MARK') continue;
 
-  // Filter out ancestors when a more specific descendant exists.
-  // Using ancestors (e.g. <table>) causes wrong highlights because markdown-space
-  // offsets don't map 1:1 to rendered-text character positions.
-  const elements = overlapping.filter(el =>
-    !overlapping.some(other => other !== el && el.contains(other))
-  );
+    const mdRange = getTextNodeMarkdownRange(textNode, container);
+    if (!mdRange) continue;
 
-  for (const el of elements) {
-    const elStart = parseInt(el.getAttribute('data-source-start')!, 10);
-    const elEnd = parseInt(el.getAttribute('data-source-end')!, 10);
-
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    const textNodes: Text[] = [];
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-      textNodes.push(node as Text);
+    // Check overlap with annotation
+    if (mdRange.start >= annotation.markdownEndOffset || mdRange.end <= annotation.markdownStartOffset) {
+      continue;
     }
 
-    const annotationStartInEl = Math.max(0, annotation.markdownStartOffset - elStart);
-    const annotationEndInEl = Math.min(elEnd - elStart, annotation.markdownEndOffset - elStart);
+    const textLength = textNode.textContent?.length ?? 0;
+    const wrapStart = Math.max(0, annotation.markdownStartOffset - mdRange.start);
+    const wrapEnd = Math.min(textLength, annotation.markdownEndOffset - mdRange.start);
 
-    let charCount = 0;
-    for (const textNode of textNodes) {
-      const textLength = textNode.textContent?.length ?? 0;
-      const nodeStart = charCount;
-      const nodeEnd = charCount + textLength;
+    if (wrapStart >= wrapEnd) continue;
 
-      if (nodeStart < annotationEndInEl && nodeEnd > annotationStartInEl) {
-        const wrapStart = Math.max(0, annotationStartInEl - nodeStart);
-        const wrapEnd = Math.min(textLength, annotationEndInEl - nodeStart);
+    const range = document.createRange();
+    range.setStart(textNode, wrapStart);
+    range.setEnd(textNode, wrapEnd);
 
-        if (wrapStart < wrapEnd && textNode.parentElement?.tagName !== 'MARK') {
-          const range = document.createRange();
-          range.setStart(textNode, wrapStart);
-          range.setEnd(textNode, wrapEnd);
+    const mark = document.createElement('mark');
+    mark.setAttribute('data-annotation-id', annotation.id);
+    if (isActive) mark.classList.add('active');
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onActivate(annotation.id);
+    });
 
-          const mark = document.createElement('mark');
-          mark.setAttribute('data-annotation-id', annotation.id);
-          if (isActive) mark.classList.add('active');
-          mark.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onActivate(annotation.id);
-          });
-
-          try {
-            range.surroundContents(mark);
-          } catch {
-            // surroundContents can fail if the range crosses element boundaries
-          }
-          break;
-        }
-      }
-
-      charCount += textLength;
+    try {
+      range.surroundContents(mark);
+    } catch {
+      // surroundContents can fail if the range crosses element boundaries
     }
   }
 }

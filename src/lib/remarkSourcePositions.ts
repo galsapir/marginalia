@@ -20,6 +20,29 @@ const rehypeSourcePositions: Plugin<[], Root> = () => {
           node.properties = node.properties || {};
           node.properties['data-source-start'] = start;
           node.properties['data-source-end'] = end;
+
+          // Content boundaries exclude syntax markers (e.g., ** for bold).
+          // Derived from children positions in the AST.
+          if (node.children.length > 0) {
+            let contentStart: number | undefined;
+            let contentEnd: number | undefined;
+            for (const child of node.children) {
+              if (child.position?.start.offset !== undefined) {
+                contentStart = child.position.start.offset;
+                break;
+              }
+            }
+            for (let i = node.children.length - 1; i >= 0; i--) {
+              if (node.children[i].position?.end.offset !== undefined) {
+                contentEnd = node.children[i].position.end.offset;
+                break;
+              }
+            }
+            if (contentStart !== undefined && contentEnd !== undefined) {
+              node.properties['data-content-start'] = contentStart;
+              node.properties['data-content-end'] = contentEnd;
+            }
+          }
         }
       }
     });
