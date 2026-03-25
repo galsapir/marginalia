@@ -8,4 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: '/marginalia/',
   plugins: [react(), tailwindcss()],
+  define: {
+    __BUILD_TIMESTAMP__: JSON.stringify(new Date().toISOString()),
+  },
 })
