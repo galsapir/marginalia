@@ -1,15 +1,25 @@
-// ABOUTME: Custom hook for handling drag-and-drop of markdown files.
+// ABOUTME: Custom hook for handling drag-and-drop of markdown and PDF files.
 // ABOUTME: Provides drag state and handlers for use on any drop target.
 
 import { useState, useCallback } from 'react';
-import { isMarkdownFile, readFileAsText } from '../lib/file';
+import { getFileType, readFileAsText } from '../lib/file';
+import type { ConversionProgress } from '../lib/pdfConverter';
 
 interface UseFileDropOptions {
   onFileLoad: (content: string) => void;
   onError?: (message: string) => void;
+  onPdfConversionStart?: () => void;
+  onPdfConversionProgress?: (progress: ConversionProgress) => void;
+  onPdfConversionEnd?: () => void;
 }
 
-export function useFileDrop({ onFileLoad, onError }: UseFileDropOptions) {
+export function useFileDrop({
+  onFileLoad,
+  onError,
+  onPdfConversionStart,
+  onPdfConversionProgress,
+  onPdfConversionEnd,
+}: UseFileDropOptions) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -36,21 +46,46 @@ export function useFileDrop({ onFileLoad, onError }: UseFileDropOptions) {
       if (files.length === 0) return;
 
       const file = files[0];
-      if (!isMarkdownFile(file)) {
-        onError?.('Please drop a markdown (.md) or text (.txt) file');
+      const fileType = getFileType(file);
+
+      if (fileType === 'unsupported') {
+        onError?.('Unsupported file type. Drop a .md, .txt, or .pdf file.');
         return;
       }
 
       try {
-        const content = await readFileAsText(file);
-        if (content.trim()) {
-          onFileLoad(content);
+        if (fileType === 'pdf') {
+          onPdfConversionStart?.();
+          try {
+            const { pdfToMarkdown } = await import('../lib/pdfConverter');
+            const markdown = await pdfToMarkdown(file, onPdfConversionProgress);
+            if (markdown.trim()) {
+              onFileLoad(markdown);
+            } else {
+              onError?.(
+                'No text could be extracted from this PDF. It may be image-based.',
+              );
+            }
+          } finally {
+            onPdfConversionEnd?.();
+          }
+        } else {
+          const content = await readFileAsText(file);
+          if (content.trim()) {
+            onFileLoad(content);
+          }
         }
       } catch {
         onError?.('Could not read file');
       }
     },
-    [onFileLoad, onError],
+    [
+      onFileLoad,
+      onError,
+      onPdfConversionStart,
+      onPdfConversionProgress,
+      onPdfConversionEnd,
+    ],
   );
 
   return {

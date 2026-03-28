@@ -120,7 +120,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-cream-50 dark:bg-ink-900 flex flex-col" {...dragHandlers}>
-      {isDragging && <DropOverlay message="Drop to replace document" />}
+      {isDragging && <DropOverlay message="Drop to replace document (.md, .txt, .pdf)" />}
 
       {/* Toolbar */}
       <header className="shrink-0 border-b border-cream-300 dark:border-ink-700 bg-cream-50/80 dark:bg-ink-900/80 backdrop-blur-sm sticky top-0 z-40">

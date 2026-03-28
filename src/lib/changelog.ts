@@ -10,6 +10,9 @@ export const changelog: ChangelogEntry[] = [
   {
     date: '2026-03-31',
     changes: [
+      'PDF upload — drop or upload a PDF, get markdown automatically',
+      'AI-powered formatting — add your own API key for better structure detection',
+      'Drag-and-drop now accepts PDF files alongside .md and .txt',
       'Share links — copy a URL that pre-loads a GitHub markdown file for annotation',
       'Load markdown directly from GitHub URLs with images rendered inline',
       'Smoother annotation highlights — rendered in a single pass instead of post-render DOM mutation',

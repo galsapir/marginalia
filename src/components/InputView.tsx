@@ -4,6 +4,8 @@
 import { useState, useCallback } from 'react';
 import { useFileDrop } from '../hooks/useFileDrop';
 import { DropOverlay } from './DropOverlay';
+import { PdfUpload } from './PdfUpload';
+import { ApiKeySettings } from './ApiKeySettings';
 import { changelog } from '../lib/changelog';
 import { fetchGitHubMarkdown, parseGitHubUrl } from '../lib/github';
 
@@ -23,6 +25,7 @@ export function InputView({ onSubmit }: InputViewProps) {
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
 
   const handlePaste = useCallback(
@@ -89,7 +92,7 @@ export function InputView({ onSubmit }: InputViewProps) {
       className="min-h-screen flex items-center justify-center px-6"
       {...dragHandlers}
     >
-      {isDragging && <DropOverlay message="Drop your markdown file" />}
+      {isDragging && <DropOverlay message="Drop your file (.md, .txt, .pdf)" />}
 
       <div className="w-full max-w-2xl">
         {/* Title */}
@@ -157,14 +160,31 @@ export function InputView({ onSubmit }: InputViewProps) {
           )}
         </div>
 
-        {dragError && (
+        {/* Divider */}
+        <div className="mt-6 flex items-center gap-4">
+          <div className="flex-1 border-t border-cream-300 dark:border-ink-700" />
+          <span className="text-xs font-sans text-ink-200 dark:text-ink-500">or</span>
+          <div className="flex-1 border-t border-cream-300 dark:border-ink-700" />
+        </div>
+
+        {/* PDF upload */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <PdfUpload onConverted={onSubmit} onError={setPdfError} />
+        </div>
+
+        {(dragError || pdfError) && (
           <p className="mt-4 text-center text-xs text-red-500 font-sans">
-            {dragError}
+            {pdfError || dragError}
           </p>
         )}
 
+        {/* API key settings */}
+        <div className="mt-6 flex justify-center">
+          <ApiKeySettings />
+        </div>
+
         <p className="mt-6 text-center text-xs text-ink-200 dark:text-ink-500 font-sans">
-          Paste markdown, drag &amp; drop a .md file, then highlight text to add annotations
+          Paste markdown, drop a .md file, or upload a PDF — then highlight text to add annotations
         </p>
 
         {/* Version footer */}
