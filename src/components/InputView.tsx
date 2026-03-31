@@ -8,7 +8,7 @@ import { changelog } from '../lib/changelog';
 import { fetchGitHubMarkdown, parseGitHubUrl } from '../lib/github';
 
 interface InputViewProps {
-  onSubmit: (markdown: string, baseUrl?: string) => void;
+  onSubmit: (markdown: string, baseUrl?: string, sourceUrl?: string) => void;
 }
 
 const buildDate = new Date(__BUILD_TIMESTAMP__).toLocaleDateString('en-US', {
@@ -62,7 +62,7 @@ export function InputView({ onSubmit }: InputViewProps) {
     setUrlError(null);
     try {
       const { markdown, baseUrl } = await fetchGitHubMarkdown(trimmed);
-      onSubmit(markdown, baseUrl);
+      onSubmit(markdown, baseUrl, trimmed);
     } catch (err) {
       setUrlError(err instanceof Error ? err.message : 'Failed to load');
     } finally {

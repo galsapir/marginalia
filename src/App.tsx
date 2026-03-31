@@ -1,7 +1,7 @@
 // ABOUTME: Main application shell for Marginalia.
 // ABOUTME: Manages top-level state and layout — input view, document+sidebar, toolbar.
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useTheme } from './hooks/useTheme';
 import { useFileDrop } from './hooks/useFileDrop';
@@ -12,11 +12,14 @@ import { Sidebar } from './components/Sidebar';
 import { ExportControls } from './components/ExportControls';
 import { DropOverlay } from './components/DropOverlay';
 import { ThemeToggle } from './components/ThemeToggle';
+import { fetchGitHubMarkdown } from './lib/github';
 import type { ViewMode } from './lib/types';
 
 export default function App() {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -33,9 +36,10 @@ export default function App() {
     shiftAnnotations,
   } = useAnnotations();
 
-  const handleLoadMarkdown = useCallback((content: string, contentBaseUrl?: string) => {
+  const handleLoadMarkdown = useCallback((content: string, contentBaseUrl?: string, contentSourceUrl?: string) => {
     setMarkdown(content);
     setBaseUrl(contentBaseUrl ?? null);
+    setSourceUrl(contentSourceUrl ?? null);
   }, []);
 
   const handleEditMarkdown = useCallback(
@@ -52,7 +56,12 @@ export default function App() {
   const handleReset = useCallback(() => {
     setMarkdown(null);
     setBaseUrl(null);
+    setSourceUrl(null);
     setActiveAnnotationId(null);
+    // Clean up query param if present
+    if (window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [setActiveAnnotationId]);
 
   const handleFileDropLoad = useCallback(
@@ -74,6 +83,28 @@ export default function App() {
     },
     [setActiveAnnotationId],
   );
+
+  // Auto-load from ?url= query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get('url');
+    if (!urlParam) return;
+    fetchGitHubMarkdown(urlParam).then(
+      ({ markdown: md, baseUrl: bu }) => handleLoadMarkdown(md, bu, urlParam),
+      () => {
+        // Failed to load — clear query param and let user try manually
+        window.history.replaceState({}, '', window.location.pathname);
+      },
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleShare = useCallback(() => {
+    if (!sourceUrl) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?url=${encodeURIComponent(sourceUrl)}`;
+    navigator.clipboard.writeText(shareUrl);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1500);
+  }, [sourceUrl]);
 
   // Show input view when no markdown is loaded
   if (markdown === null) {
@@ -142,6 +173,27 @@ export default function App() {
             </button>
             <div className="w-px h-5 bg-cream-300 dark:bg-ink-700" />
             <ExportControls markdown={markdown} annotations={annotations} />
+            {sourceUrl && (
+              <>
+                <div className="w-px h-5 bg-cream-300 dark:bg-ink-700" />
+                <button
+                  onClick={handleShare}
+                  className="px-3 py-1 text-xs font-sans font-medium rounded-md transition-colors text-ink-400 dark:text-ink-300 hover:text-ink-600 dark:hover:text-ink-100"
+                  title="Copy share link"
+                >
+                  {shareCopied ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                  )}
+                </button>
+              </>
+            )}
             <div className="w-px h-5 bg-cream-300 dark:bg-ink-700" />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
