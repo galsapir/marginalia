@@ -47,10 +47,12 @@ export function createRehypeAnnotationMarks(
           if (charStart >= charEnd) return;
 
           // Build replacement nodes: [before text, <mark>highlighted</mark>, after text]
+          // Split fragments retain synthetic position data so subsequent annotation
+          // passes can still match them by markdown offset.
           const parts: ElementContent[] = [];
 
           if (charStart > 0) {
-            parts.push({ type: 'text', value: node.value.slice(0, charStart) });
+            parts.push(textWithPosition(node.value.slice(0, charStart), nodeStart, nodeStart + charStart));
           }
 
           const markNode: Element = {
@@ -65,7 +67,7 @@ export function createRehypeAnnotationMarks(
           parts.push(markNode);
 
           if (charEnd < node.value.length) {
-            parts.push({ type: 'text', value: node.value.slice(charEnd) });
+            parts.push(textWithPosition(node.value.slice(charEnd), nodeStart + charEnd, nodeEnd));
           }
 
           // Replace the text node with the split parts
@@ -76,5 +78,17 @@ export function createRehypeAnnotationMarks(
         });
       }
     };
+  };
+}
+
+/** Creates a text node with synthetic position offsets. */
+function textWithPosition(value: string, startOffset: number, endOffset: number): Text {
+  return {
+    type: 'text',
+    value,
+    position: {
+      start: { line: 0, column: 0, offset: startOffset },
+      end: { line: 0, column: 0, offset: endOffset },
+    },
   };
 }
