@@ -31,6 +31,20 @@ function itemsToLines(
   const lines: ExtractedLine[] = [];
   let currentLine: { texts: string[]; fontSize: number; y: number; x: number } | null = null;
 
+  function flushLine() {
+    if (!currentLine) return;
+    const text = currentLine.texts.join('');
+    if (text.trim()) {
+      lines.push({
+        text,
+        fontSize: currentLine.fontSize,
+        y: currentLine.y,
+        x: currentLine.x,
+      });
+    }
+    currentLine = null;
+  }
+
   for (const item of items) {
     if (!item.str && !item.hasEOL) continue;
 
@@ -38,51 +52,25 @@ function itemsToLines(
     const y = pageHeight - item.transform[5];
     const x = item.transform[4];
 
-    // Start a new line if Y position changed significantly or item has EOL
     if (
       currentLine === null ||
       Math.abs(y - currentLine.y) > fontSize * 0.5
     ) {
-      if (currentLine && currentLine.texts.join('').trim()) {
-        lines.push({
-          text: currentLine.texts.join(''),
-          fontSize: currentLine.fontSize,
-          y: currentLine.y,
-          x: currentLine.x,
-        });
-      }
+      flushLine();
       currentLine = { texts: [item.str], fontSize, y, x };
     } else {
       currentLine.texts.push(item.str);
-      // Track the largest font size on this line
       if (fontSize > currentLine.fontSize) {
         currentLine.fontSize = fontSize;
       }
     }
 
-    if (item.hasEOL && currentLine) {
-      if (currentLine.texts.join('').trim()) {
-        lines.push({
-          text: currentLine.texts.join(''),
-          fontSize: currentLine.fontSize,
-          y: currentLine.y,
-          x: currentLine.x,
-        });
-      }
-      currentLine = null;
+    if (item.hasEOL) {
+      flushLine();
     }
   }
 
-  // Flush last line
-  if (currentLine && currentLine.texts.join('').trim()) {
-    lines.push({
-      text: currentLine.texts.join(''),
-      fontSize: currentLine.fontSize,
-      y: currentLine.y,
-      x: currentLine.x,
-    });
-  }
-
+  flushLine();
   return lines;
 }
 

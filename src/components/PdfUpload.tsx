@@ -1,5 +1,5 @@
 // ABOUTME: PDF file upload button with conversion progress indicator.
-// ABOUTME: Handles the upload → convert → optional LLM structure flow.
+// ABOUTME: Handles the upload -> convert -> optional LLM structure flow.
 
 import { useState, useCallback, useRef } from 'react';
 import type { ConversionProgress } from '../lib/pdfConverter';
@@ -16,12 +16,17 @@ type ConversionState =
   | { phase: 'structuring' }
   | { phase: 'done' };
 
+const EMPTY_PDF_MSG =
+  'No text could be extracted from this PDF. It may be image-based.';
+
 export function PdfUpload({ onConverted, onError }: PdfUploadProps) {
   const [state, setState] = useState<ConversionState>({ phase: 'idle' });
   const inputRef = useRef<HTMLInputElement>(null);
+  const activeFileRef = useRef<File | null>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
+      activeFileRef.current = file;
       const useAI = hasAnyApiKey();
 
       try {
@@ -30,19 +35,21 @@ export function PdfUpload({ onConverted, onError }: PdfUploadProps) {
           progress: { current: 0, total: 0 },
         });
 
-        // Lazy-load PDF converter and LLM module
-        const { pdfToMarkdown, pdfToRawText } = await import('../lib/pdfConverter');
+        const { pdfToMarkdown, pdfToRawText } = await import(
+          '../lib/pdfConverter'
+        );
+
+        const onProgress = (progress: ConversionProgress) => {
+          if (activeFileRef.current !== file) return;
+          setState({ phase: 'extracting', progress });
+        };
 
         if (useAI) {
-          // Extract raw text, then send to LLM for structuring
-          const rawText = await pdfToRawText(file, (progress) => {
-            setState({ phase: 'extracting', progress });
-          });
+          const rawText = await pdfToRawText(file, onProgress);
+          if (activeFileRef.current !== file) return;
 
           if (!rawText.trim()) {
-            onError?.(
-              'No text could be extracted from this PDF. It may be image-based.',
-            );
+            onError?.(EMPTY_PDF_MSG);
             setState({ phase: 'idle' });
             return;
           }
@@ -50,18 +57,16 @@ export function PdfUpload({ onConverted, onError }: PdfUploadProps) {
           setState({ phase: 'structuring' });
           const { structureWithLLM } = await import('../lib/llmStructure');
           const structured = await structureWithLLM(rawText);
+          if (activeFileRef.current !== file) return;
+
           setState({ phase: 'done' });
           onConverted(structured);
         } else {
-          // Mechanical extraction with font-size heuristics
-          const markdown = await pdfToMarkdown(file, (progress) => {
-            setState({ phase: 'extracting', progress });
-          });
+          const markdown = await pdfToMarkdown(file, onProgress);
+          if (activeFileRef.current !== file) return;
 
           if (!markdown.trim()) {
-            onError?.(
-              'No text could be extracted from this PDF. It may be image-based.',
-            );
+            onError?.(EMPTY_PDF_MSG);
             setState({ phase: 'idle' });
             return;
           }
@@ -70,6 +75,7 @@ export function PdfUpload({ onConverted, onError }: PdfUploadProps) {
           onConverted(markdown);
         }
       } catch (err) {
+        if (activeFileRef.current !== file) return;
         const message =
           err instanceof Error ? err.message : 'PDF conversion failed';
         onError?.(message);
@@ -83,13 +89,12 @@ export function PdfUpload({ onConverted, onError }: PdfUploadProps) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) handleFile(file);
-      // Reset input so the same file can be re-selected
       if (inputRef.current) inputRef.current.value = '';
     },
     [handleFile],
   );
 
-  const isProcessing = state.phase !== 'idle' && state.phase !== 'done';
+  const isProcessing = state.phase === 'extracting' || state.phase === 'structuring';
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -124,15 +129,11 @@ export function PdfUpload({ onConverted, onError }: PdfUploadProps) {
         Upload PDF
       </button>
 
-      {state.phase === 'extracting' && state.progress.total > 0 && (
+      {state.phase === 'extracting' && (
         <p className="text-xs font-sans text-ink-300 dark:text-ink-400 animate-pulse">
-          Extracting text... page {state.progress.current} of{' '}
-          {state.progress.total}
-        </p>
-      )}
-      {state.phase === 'extracting' && state.progress.total === 0 && (
-        <p className="text-xs font-sans text-ink-300 dark:text-ink-400 animate-pulse">
-          Loading PDF...
+          {state.progress.total > 0
+            ? `Extracting text... page ${state.progress.current} of ${state.progress.total}`
+            : 'Loading PDF...'}
         </p>
       )}
       {state.phase === 'structuring' && (

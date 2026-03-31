@@ -5,7 +5,6 @@ import { useState, useCallback } from 'react';
 import {
   getStoredKeys,
   storeKeys,
-  hasAnyApiKey,
   type LLMProvider,
 } from '../lib/apiKey';
 
@@ -15,11 +14,14 @@ interface ApiKeySettingsProps {
 
 export function ApiKeySettings({ onKeysChanged }: ApiKeySettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const stored = getStoredKeys();
-  const [anthropicKey, setAnthropicKey] = useState(stored.anthropic ?? '');
-  const [openaiKey, setOpenaiKey] = useState(stored.openai ?? '');
+  const [anthropicKey, setAnthropicKey] = useState(
+    () => getStoredKeys().anthropic ?? '',
+  );
+  const [openaiKey, setOpenaiKey] = useState(
+    () => getStoredKeys().openai ?? '',
+  );
   const [preferred, setPreferred] = useState<LLMProvider>(
-    stored.preferredProvider ?? 'anthropic',
+    () => getStoredKeys().preferredProvider ?? 'anthropic',
   );
   const [saved, setSaved] = useState(false);
 
@@ -34,7 +36,7 @@ export function ApiKeySettings({ onKeysChanged }: ApiKeySettingsProps) {
     setTimeout(() => setSaved(false), 2000);
   }, [anthropicKey, openaiKey, preferred, onKeysChanged]);
 
-  const hasKeys = hasAnyApiKey();
+  const hasKeys = Boolean(anthropicKey.trim() || openaiKey.trim());
 
   return (
     <div className="w-full">
