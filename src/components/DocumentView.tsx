@@ -1,13 +1,14 @@
 // ABOUTME: Renders markdown with annotation highlights, text selection for annotations, and inline editing.
-// ABOUTME: Uses react-markdown with rehype source positions; post-processes DOM to apply highlight marks.
+// ABOUTME: Uses react-markdown with rehype plugins for source positions and annotation marks in a single render pass.
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSourcePositions from '../lib/remarkSourcePositions';
+import { createRehypeAnnotationMarks } from '../lib/rehypeAnnotationMarks';
+import { resolveImageSrc } from '../lib/github';
 import { selectionToMarkdownRange } from '../lib/selection';
-import { getTextNodeMarkdownRange } from '../lib/positions';
 import { AnnotationPopover } from './AnnotationPopover';
 import { NotePopover } from './NotePopover';
 import type { Annotation } from '../lib/types';
@@ -16,6 +17,7 @@ interface DocumentViewProps {
   markdown: string;
   annotations: Annotation[];
   activeAnnotationId: string | null;
+  baseUrl: string | null;
   onAddAnnotation: (selectedText: string, note: string, startOffset: number, endOffset: number) => string;
   onActivateAnnotation: (id: string) => void;
   onUpdateAnnotation: (id: string, note: string) => void;
@@ -40,6 +42,7 @@ export function DocumentView({
   markdown,
   annotations,
   activeAnnotationId,
+  baseUrl,
   onAddAnnotation,
   onActivateAnnotation,
   onUpdateAnnotation,
@@ -214,11 +217,11 @@ export function DocumentView({
     window.getSelection()?.removeAllRanges();
   }, []);
 
-  // Apply annotation highlights to the rendered DOM
-  useEffect(() => {
-    if (!containerRef.current || editing) return;
-    applyHighlights(containerRef.current, annotations, activeAnnotationId, handleMarkClick);
-  }, [annotations, activeAnnotationId, markdown, handleMarkClick, editing]);
+  // Memoize rehype plugins so react-markdown only re-processes when annotations change
+  const rehypePlugins = useMemo(
+    () => [rehypeSourcePositions, createRehypeAnnotationMarks(annotations, activeAnnotationId)],
+    [annotations, activeAnnotationId],
+  );
 
   // Scroll to active annotation highlight in document
   useEffect(() => {
@@ -246,12 +249,34 @@ export function DocumentView({
       >
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeSourcePositions]}
+          rehypePlugins={rehypePlugins}
           components={{
             table: ({ children, ...props }) => (
               <div className="table-scroll-container">
                 <table {...props}>{children}</table>
               </div>
+            ),
+            mark: ({ children, ...props }) => {
+              const id = (props as Record<string, unknown>)['data-annotation-id'] as string | undefined;
+              return (
+                <mark
+                  {...props}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (id) handleMarkClick(id);
+                  }}
+                >
+                  {children}
+                </mark>
+              );
+            },
+            img: ({ src, alt, ...props }) => (
+              <img
+                {...props}
+                src={resolveImageSrc(src ?? '', baseUrl)}
+                alt={alt ?? ''}
+                loading="lazy"
+              />
             ),
           }}
         >
@@ -397,92 +422,3 @@ function InlineEditOverlay({
   );
 }
 
-/**
- * Post-processes the rendered markdown DOM to wrap annotated text ranges
- * with <mark> elements. This runs after every render/annotation change.
- */
-function applyHighlights(
-  container: HTMLElement,
-  annotations: Annotation[],
-  activeId: string | null,
-  onActivate: (id: string) => void,
-) {
-  // Remove existing marks first
-  container.querySelectorAll('mark[data-annotation-id]').forEach((mark) => {
-    const parent = mark.parentNode;
-    if (parent) {
-      while (mark.firstChild) {
-        parent.insertBefore(mark.firstChild, mark);
-      }
-      parent.removeChild(mark);
-      parent.normalize();
-    }
-  });
-
-  // Sort annotations by start offset (descending) to process from end to start
-  // so earlier insertions don't shift later offsets
-  const sorted = [...annotations].sort(
-    (a, b) => b.markdownStartOffset - a.markdownStartOffset,
-  );
-
-  // Collect text nodes once — must snapshot before DOM mutation (surroundContents splits nodes)
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  let n: Node | null;
-  while ((n = walker.nextNode())) {
-    textNodes.push(n as Text);
-  }
-
-  for (const annotation of sorted) {
-    wrapAnnotationRange(container, textNodes, annotation, activeId === annotation.id, onActivate);
-  }
-}
-
-/**
- * Wraps the text corresponding to an annotation's markdown range with <mark> elements.
- * Handles cross-element annotations correctly.
- */
-function wrapAnnotationRange(
-  container: HTMLElement,
-  textNodes: Text[],
-  annotation: Annotation,
-  isActive: boolean,
-  onActivate: (id: string) => void,
-) {
-
-  for (const textNode of textNodes) {
-    if (textNode.parentElement?.tagName === 'MARK') continue;
-
-    const mdRange = getTextNodeMarkdownRange(textNode, container);
-    if (!mdRange) continue;
-
-    // Check overlap with annotation
-    if (mdRange.start >= annotation.markdownEndOffset || mdRange.end <= annotation.markdownStartOffset) {
-      continue;
-    }
-
-    const textLength = textNode.textContent?.length ?? 0;
-    const wrapStart = Math.max(0, annotation.markdownStartOffset - mdRange.start);
-    const wrapEnd = Math.min(textLength, annotation.markdownEndOffset - mdRange.start);
-
-    if (wrapStart >= wrapEnd) continue;
-
-    const range = document.createRange();
-    range.setStart(textNode, wrapStart);
-    range.setEnd(textNode, wrapEnd);
-
-    const mark = document.createElement('mark');
-    mark.setAttribute('data-annotation-id', annotation.id);
-    if (isActive) mark.classList.add('active');
-    mark.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onActivate(annotation.id);
-    });
-
-    try {
-      range.surroundContents(mark);
-    } catch {
-      // surroundContents can fail if the range crosses element boundaries
-    }
-  }
-}

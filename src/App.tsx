@@ -16,6 +16,7 @@ import type { ViewMode } from './lib/types';
 
 export default function App() {
   const [markdown, setMarkdown] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -32,8 +33,9 @@ export default function App() {
     shiftAnnotations,
   } = useAnnotations();
 
-  const handleLoadMarkdown = useCallback((content: string) => {
+  const handleLoadMarkdown = useCallback((content: string, contentBaseUrl?: string) => {
     setMarkdown(content);
+    setBaseUrl(contentBaseUrl ?? null);
   }, []);
 
   const handleEditMarkdown = useCallback(
@@ -49,6 +51,7 @@ export default function App() {
 
   const handleReset = useCallback(() => {
     setMarkdown(null);
+    setBaseUrl(null);
     setActiveAnnotationId(null);
   }, [setActiveAnnotationId]);
 
@@ -159,6 +162,7 @@ export default function App() {
                   markdown={markdown}
                   annotations={annotations}
                   activeAnnotationId={activeAnnotationId}
+                  baseUrl={baseUrl}
                   onAddAnnotation={addAnnotation}
                   onActivateAnnotation={handleAnnotationActivate}
                   onUpdateAnnotation={updateAnnotation}
