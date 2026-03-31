@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-03-31',
+    changes: [
+      'Load markdown directly from GitHub URLs with images rendered inline',
+      'Smoother annotation highlights — rendered in a single pass instead of post-render DOM mutation',
+    ],
+  },
+  {
     date: '2026-03-25',
     changes: [
       'Click a highlight to see its note in a floating popover',
