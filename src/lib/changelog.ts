@@ -8,6 +8,12 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-04-03',
+    changes: [
+      'Load any webpage as markdown — paste a URL and annotate articles, docs, blog posts',
+    ],
+  },
+  {
     date: '2026-03-31',
     changes: [
       'Share links — copy a URL that pre-loads a GitHub markdown file for annotation',
