@@ -1,11 +1,12 @@
-// ABOUTME: Landing view where users paste markdown content or load from GitHub URL.
+// ABOUTME: Landing view where users paste markdown or load from a URL (GitHub files, webpages).
 // ABOUTME: Shows a centered textarea with editorial styling, drag-and-drop zone, URL input, and a subtle prompt.
 
 import { useState, useCallback } from 'react';
 import { useFileDrop } from '../hooks/useFileDrop';
 import { DropOverlay } from './DropOverlay';
 import { changelog } from '../lib/changelog';
-import { fetchGitHubMarkdown, parseGitHubUrl } from '../lib/github';
+import { loadMarkdownFromUrl } from '../lib/loadUrl';
+import { isWebpageUrl } from '../lib/webpage';
 
 interface InputViewProps {
   onSubmit: (markdown: string, baseUrl?: string, sourceUrl?: string) => void;
@@ -20,7 +21,7 @@ const buildDate = new Date(__BUILD_TIMESTAMP__).toLocaleDateString('en-US', {
 export function InputView({ onSubmit }: InputViewProps) {
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
-  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlLoading, setUrlLoading] = useState<string | false>(false);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
@@ -54,14 +55,17 @@ export function InputView({ onSubmit }: InputViewProps) {
   const handleUrlLoad = useCallback(async () => {
     const trimmed = url.trim();
     if (!trimmed) return;
-    if (!parseGitHubUrl(trimmed)) {
-      setUrlError('Not a GitHub file URL. Expected: https://github.com/{owner}/{repo}/blob/{branch}/{path}');
+
+    if (!isWebpageUrl(trimmed)) {
+      setUrlError('Enter a valid URL (any webpage, or a GitHub file URL)');
       return;
     }
-    setUrlLoading(true);
+
+    const isGitHub = /^https?:\/\/github\.com\/.*\/blob\//.test(trimmed);
+    setUrlLoading(isGitHub ? 'Loading\u2026' : 'Converting page\u2026');
     setUrlError(null);
     try {
-      const { markdown, baseUrl } = await fetchGitHubMarkdown(trimmed);
+      const { markdown, baseUrl } = await loadMarkdownFromUrl(trimmed);
       onSubmit(markdown, baseUrl, trimmed);
     } catch (err) {
       setUrlError(err instanceof Error ? err.message : 'Failed to load');
@@ -102,7 +106,7 @@ export function InputView({ onSubmit }: InputViewProps) {
           </p>
         </div>
 
-        {/* GitHub URL input */}
+        {/* URL input */}
         <div className="mb-6">
           <div className="flex gap-2">
             <input
@@ -110,15 +114,15 @@ export function InputView({ onSubmit }: InputViewProps) {
               value={url}
               onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
               onKeyDown={handleUrlKeyDown}
-              placeholder="https://github.com/owner/repo/blob/main/README.md"
+              placeholder="https://example.com/article or GitHub file URL"
               className="flex-1 px-4 py-2.5 bg-cream-100 dark:bg-ink-800 border border-cream-300 dark:border-ink-600 rounded-lg font-mono text-sm text-ink-700 dark:text-ink-100 placeholder-ink-200 dark:placeholder-ink-500 focus:outline-none focus:border-sienna-400 dark:focus:border-sienna-500 focus:ring-1 focus:ring-sienna-400/30"
             />
             <button
               onClick={handleUrlLoad}
-              disabled={urlLoading || !url.trim()}
+              disabled={!!urlLoading || !url.trim()}
               className="px-4 py-2.5 bg-ink-700 dark:bg-cream-100 text-cream-50 dark:text-ink-800 font-sans text-sm font-medium rounded-lg hover:bg-ink-800 dark:hover:bg-cream-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              {urlLoading ? 'Loading\u2026' : 'Load'}
+              {urlLoading || 'Load'}
             </button>
           </div>
           {urlError && (
@@ -164,7 +168,7 @@ export function InputView({ onSubmit }: InputViewProps) {
         )}
 
         <p className="mt-6 text-center text-xs text-ink-200 dark:text-ink-500 font-sans">
-          Paste markdown, drag &amp; drop a .md file, then highlight text to add annotations
+          Load a URL, paste markdown, or drop a .md file &mdash; then highlight to annotate
         </p>
 
         {/* Version footer */}

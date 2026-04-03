@@ -1,0 +1,16 @@
+{
+  "name": "marginalia-reader",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260403.1",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.14.0"
+  }
+}

@@ -12,7 +12,7 @@ import { Sidebar } from './components/Sidebar';
 import { ExportControls } from './components/ExportControls';
 import { DropOverlay } from './components/DropOverlay';
 import { ThemeToggle } from './components/ThemeToggle';
-import { fetchGitHubMarkdown } from './lib/github';
+import { loadMarkdownFromUrl } from './lib/loadUrl';
 import type { ViewMode } from './lib/types';
 
 export default function App() {
@@ -89,7 +89,8 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const urlParam = params.get('url');
     if (!urlParam) return;
-    fetchGitHubMarkdown(urlParam).then(
+
+    loadMarkdownFromUrl(urlParam).then(
       ({ markdown: md, baseUrl: bu }) => handleLoadMarkdown(md, bu, urlParam),
       () => {
         // Failed to load — clear query param and let user try manually
