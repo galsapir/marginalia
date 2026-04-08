@@ -29,8 +29,8 @@
 
   --color-amber-highlight: #fef3c7;
   --color-amber-highlight-active: #fde68a;
-  --color-amber-highlight-dark: #d9770626;
-  --color-amber-highlight-dark-active: #d9770640;
+  --color-amber-highlight-dark: #fbbf2430;
+  --color-amber-highlight-dark-active: #fbbf244d;
 
   --color-sienna-500: #b45309;
   --color-sienna-600: #92400e;
@@ -228,7 +228,7 @@ mark[data-annotation-id] {
 
 .dark mark[data-annotation-id] {
   background-color: var(--color-amber-highlight-dark);
-  border-bottom-color: var(--color-sienna-500);
+  border-bottom-color: #d9770680;
 }
 
 mark[data-annotation-id]:hover,
@@ -264,6 +264,11 @@ mark[data-annotation-id].active {
 ::selection {
   background-color: var(--color-amber-highlight-active);
   color: var(--color-ink-800);
+}
+
+.dark ::selection {
+  background-color: var(--color-amber-highlight-dark-active);
+  color: var(--color-cream-50);
 }
 
 /* Note popover entrance animation */
