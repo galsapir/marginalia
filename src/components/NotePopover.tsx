@@ -70,9 +70,13 @@ export function NotePopover({
   // Flip above mark if insufficient room below
   useLayoutEffect(() => {
     if (!popoverRef.current) return;
-    const popoverHeight = popoverRef.current.offsetHeight;
-    const spaceBelow = window.innerHeight - position.y - 8;
-    setFlipped(spaceBelow < popoverHeight && position.markTop - 8 - popoverHeight > 0);
+    const frame = requestAnimationFrame(() => {
+      if (!popoverRef.current) return;
+      const popoverHeight = popoverRef.current.offsetHeight;
+      const spaceBelow = window.innerHeight - position.y - 8;
+      setFlipped(spaceBelow < popoverHeight && position.markTop - 8 - popoverHeight > 0);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [position, isEditing]);
 
   // Focus textarea when entering edit mode

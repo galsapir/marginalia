@@ -38,8 +38,11 @@ export function Sidebar({
   const [cardPositions, setCardPositions] = useState<Map<string, number>>(new Map());
   const [cardAreaMinHeight, setCardAreaMinHeight] = useState(0);
   const annotationsRef = useRef(annotations);
-  annotationsRef.current = annotations;
   const measureFrameRef = useRef(0);
+
+  useEffect(() => {
+    annotationsRef.current = annotations;
+  }, [annotations]);
 
   const measure = useCallback(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -103,9 +106,11 @@ export function Sidebar({
   // Measure after annotations change (deferred to let marks render)
   useEffect(() => {
     if (collapsed || focusMode || annotations.length === 0) {
-      setCardPositions(new Map());
-      setCardAreaMinHeight(0);
-      return;
+      const frame = requestAnimationFrame(() => {
+        setCardPositions(new Map());
+        setCardAreaMinHeight(0);
+      });
+      return () => cancelAnimationFrame(frame);
     }
     scheduleMeasure();
     return () => cancelAnimationFrame(measureFrameRef.current);
@@ -122,7 +127,7 @@ export function Sidebar({
     observer.observe(scrollContainer);
     observer.observe(cardArea);
     return () => observer.disconnect();
-  }, [collapsed, scheduleMeasure, scrollContainerRef]);
+  }, [collapsed, focusMode, scheduleMeasure, scrollContainerRef]);
 
   const setCardRef = useCallback((id: string, el: HTMLDivElement | null) => {
     if (el) {

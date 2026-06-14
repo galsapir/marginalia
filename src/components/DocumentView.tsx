@@ -68,7 +68,8 @@ export function DocumentView({
   // Dismiss popover if its annotation was deleted
   useEffect(() => {
     if (notePopover && !annotations.find(a => a.id === notePopover.annotationId)) {
-      setNotePopover(null);
+      const frame = requestAnimationFrame(() => setNotePopover(null));
+      return () => cancelAnimationFrame(frame);
     }
   }, [annotations, notePopover]);
 
@@ -161,7 +162,7 @@ export function DocumentView({
       }
       el = el.parentElement!;
     }
-  }, [pending, markdown]);
+  }, [markdown]);
 
   // Global Esc listener to cancel editing even if textarea loses focus
   useEffect(() => {
@@ -326,6 +327,7 @@ export function DocumentView({
   );
 }
 
+
 /**
  * Replaces a rendered block in-place with an editable textarea using a portal.
  * Inserted into document flow so it pushes content down naturally.
@@ -362,9 +364,10 @@ function InlineEditOverlay({
 
         const container = document.createElement('div');
         target.parentNode!.insertBefore(container, target);
-        setPortalContainer(container);
+        const frame = requestAnimationFrame(() => setPortalContainer(container));
 
         return () => {
+          cancelAnimationFrame(frame);
           target.style.display = '';
           container.remove();
           setPortalContainer(null);
@@ -421,4 +424,3 @@ function InlineEditOverlay({
     portalContainer,
   );
 }
-
