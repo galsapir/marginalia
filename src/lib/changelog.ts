@@ -8,6 +8,12 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-06-14',
+    changes: [
+      'Reader zoom shortcuts — use Cmd/Ctrl + and Cmd/Ctrl - to adjust document scale',
+    ],
+  },
+  {
     date: '2026-04-08',
     changes: [
       'Improved highlight visibility in dark mode — warmer amber tones with softer underlines',

@@ -59,7 +59,7 @@ body {
 /* Markdown document typography */
 .markdown-body {
   font-family: var(--font-serif);
-  font-size: 1.125rem;
+  font-size: var(--reader-font-size, 1.125rem);
   line-height: 1.8;
   color: var(--color-ink-700);
 }
@@ -91,9 +91,9 @@ body {
   color: var(--color-cream-100);
 }
 
-.markdown-body h1 { font-size: 2rem; }
-.markdown-body h2 { font-size: 1.6rem; }
-.markdown-body h3 { font-size: 1.3rem; }
+.markdown-body h1 { font-size: 1.778em; }
+.markdown-body h2 { font-size: 1.422em; }
+.markdown-body h3 { font-size: 1.156em; }
 
 .markdown-body p {
   margin-bottom: 1.25em;

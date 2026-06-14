@@ -2,6 +2,7 @@
 // ABOUTME: Manages top-level state and layout — input view, document+sidebar, toolbar.
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import type { CSSProperties } from 'react';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useTheme } from './hooks/useTheme';
 import { useFileDrop } from './hooks/useFileDrop';
@@ -13,6 +14,7 @@ import { ExportControls } from './components/ExportControls';
 import { DropOverlay } from './components/DropOverlay';
 import { ThemeToggle } from './components/ThemeToggle';
 import { loadMarkdownFromUrl } from './lib/loadUrl';
+import { getNextReaderZoom, getReaderZoomShortcut } from './lib/readerZoom';
 import type { ViewMode } from './lib/types';
 
 export default function App() {
@@ -23,6 +25,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [readerZoom, setReaderZoom] = useState(1);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
   const {
@@ -107,6 +110,21 @@ export default function App() {
     setTimeout(() => setShareCopied(false), 1500);
   }, [sourceUrl]);
 
+  useEffect(() => {
+    if (markdown === null) return;
+
+    const handleReaderZoomKeyDown = (event: KeyboardEvent) => {
+      const direction = getReaderZoomShortcut(event);
+      if (!direction) return;
+
+      event.preventDefault();
+      setReaderZoom((currentZoom) => getNextReaderZoom(currentZoom, direction));
+    };
+
+    window.addEventListener('keydown', handleReaderZoomKeyDown);
+    return () => window.removeEventListener('keydown', handleReaderZoomKeyDown);
+  }, [markdown]);
+
   // Show input view when no markdown is loaded
   if (markdown === null) {
     return (
@@ -118,6 +136,11 @@ export default function App() {
       </div>
     );
   }
+
+  const readerStyle: CSSProperties & { '--reader-font-size': string } = {
+    '--reader-font-size': `${18 * readerZoom}px`,
+    maxWidth: `${(focusMode ? 64 : 48) * readerZoom}rem`,
+  };
 
   return (
     <div className="min-h-screen bg-cream-50 dark:bg-ink-900 flex flex-col" {...dragHandlers}>
@@ -207,8 +230,8 @@ export default function App() {
           {/* Document */}
           <main className="flex-1 px-12 py-8 lg:px-20 xl:px-28">
             <div
-              className="mx-auto transition-[max-width] duration-300 ease-out"
-              style={{ maxWidth: focusMode ? '64rem' : '48rem' }}
+              className="mx-auto transition-[max-width,font-size] duration-300 ease-out"
+              style={readerStyle}
             >
               {viewMode === 'rendered' ? (
                 <DocumentView
