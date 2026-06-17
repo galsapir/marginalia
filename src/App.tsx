@@ -14,7 +14,7 @@ import { ExportControls } from './components/ExportControls';
 import { DropOverlay } from './components/DropOverlay';
 import { ThemeToggle } from './components/ThemeToggle';
 import { loadMarkdownFromUrl } from './lib/loadUrl';
-import { getNextReaderZoom, getReaderZoomShortcut } from './lib/readerZoom';
+import { getNextReaderZoom, getReaderZoomShortcut, getReaderZoomStyle } from './lib/readerZoom';
 import type { ViewMode } from './lib/types';
 
 export default function App() {
@@ -137,10 +137,7 @@ export default function App() {
     );
   }
 
-  const readerStyle: CSSProperties & { '--reader-font-size': string } = {
-    '--reader-font-size': `${18 * readerZoom}px`,
-    maxWidth: `${(focusMode ? 64 : 48) * readerZoom}rem`,
-  };
+  const readerStyle = getReaderZoomStyle(readerZoom, focusMode) as CSSProperties;
 
   return (
     <div className="min-h-screen bg-cream-50 dark:bg-ink-900 flex flex-col" {...dragHandlers}>
@@ -226,9 +223,9 @@ export default function App() {
 
       {/* Main content area — single scroll container for document + sidebar */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-        <div className="flex min-h-full">
+        <div className="flex min-h-full min-w-0">
           {/* Document */}
-          <main className="flex-1 px-12 py-8 lg:px-20 xl:px-28">
+          <main className="flex-1 min-w-0 px-12 py-8 lg:px-20 xl:px-28">
             <div
               className="mx-auto transition-[max-width,font-size] duration-300 ease-out"
               style={readerStyle}

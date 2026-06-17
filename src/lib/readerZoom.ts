@@ -3,6 +3,12 @@
 
 export type ReaderZoomDirection = 'in' | 'out';
 
+export interface ReaderZoomStyle {
+  '--reader-font-size': string;
+  width: string;
+  maxWidth: string;
+}
+
 interface ReaderZoomKeyEvent {
   key: string;
   metaKey: boolean;
@@ -32,4 +38,18 @@ export function getNextReaderZoom(currentZoom: number, direction: ReaderZoomDire
   }
 
   return READER_ZOOM_LEVELS[0];
+}
+
+export function getReaderZoomStyle(readerZoom: number, focusMode: boolean): ReaderZoomStyle {
+  const baseMeasureRem = focusMode ? 64 : 48;
+
+  return {
+    '--reader-font-size': `${formatStyleNumber(18 * readerZoom)}px`,
+    width: '100%',
+    maxWidth: `min(${formatStyleNumber(baseMeasureRem * readerZoom)}rem, 100%)`,
+  };
+}
+
+function formatStyleNumber(value: number): string {
+  return Number(value.toFixed(3)).toString();
 }

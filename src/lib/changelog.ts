@@ -8,6 +8,12 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-06-17',
+    changes: [
+      'Fix focus-mode zoom clipping on narrower screens',
+    ],
+  },
+  {
     date: '2026-06-14',
     changes: [
       'Reader zoom shortcuts — use Cmd/Ctrl + and Cmd/Ctrl - to adjust document scale',
